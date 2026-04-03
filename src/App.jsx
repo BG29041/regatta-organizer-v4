@@ -954,26 +954,60 @@ export default function App() {
   const flash = (msg,type="ok") => { setToast({msg,type}); setTimeout(()=>setToast(null),3000); };
 
   // CRUD régate
-  const createReg = () => {
+  const createReg = async () => {
     if(!newReg.name.trim()){flash("Nom obligatoire","err");return;}
     const r = {
-      id:uid(), name:newReg.name.trim(), date:newReg.date, grade:newReg.grade,
+      id:uid(), name:newReg.name.trim(), date:newReg.date||null, grade:newReg.grade,
       location:"Plage du Trez-Hir — Centre Nautique de PLOUGONVELIN",
       supports:[], expected_participants:50, vhf1:"69", vhf2:"72",
       share_code:shareCode(), created_at:new Date().toISOString(),
       tasks: DEFAULT_TASKS.map(t=>({...t,id:uid(),done:false})),
       volunteers:[], adminDocs:ADMIN_DOCS.map(d=>({...d,status:"pending"})),
     };
+    // Sauvegarder dans Supabase si connecté
+    if(sb){
+      try {
+        await sb.ins("regattas", {
+          id:r.id, name:r.name, date:r.date, grade:r.grade,
+          location:r.location, expected_participants:r.expected_participants,
+          vhf1:r.vhf1, vhf2:r.vhf2, supports:JSON.stringify(r.supports),
+          share_code:r.share_code, created_at:r.created_at
+        });
+      } catch(e){ console.warn("Supabase insert failed, local only:", e); }
+    }
     setRegattas(p=>[r,...p]); setCurId(r.id); setScreen("detail"); setTab("dashboard");
     setShowCreate(false); setNewReg({name:"",date:"",grade:"5B"});
     flash(`Régate « ${r.name} » créée !`);
   };
 
-  const joinReg = () => {
+  const joinReg = async () => {
     const c=joinCode.trim().toUpperCase(); if(!c){flash("Code requis","err");return;}
-    const f=regattas.find(r=>r.share_code===c);
-    if(f){setCurId(f.id);setScreen("detail");setTab("dashboard");setShowJoin(false);setJoinCode("");flash(`Connecté à « ${f.name} »`);}
-    else flash("Code introuvable","err");
+    // D'abord chercher localement
+    const local=regattas.find(r=>r.share_code===c);
+    if(local){setCurId(local.id);setScreen("detail");setTab("dashboard");setShowJoin(false);setJoinCode("");flash(`Connecté à « ${local.name} »`);return;}
+    // Sinon chercher dans Supabase
+    if(sb){
+      try {
+        const data = await sb.get("regattas", `share_code=eq.${c}`);
+        if(data && data.length > 0){
+          const remote = data[0];
+          const r = {
+            id:remote.id, name:remote.name, date:remote.date, grade:remote.grade,
+            location:remote.location, expected_participants:remote.expected_participants,
+            vhf1:remote.vhf1||"69", vhf2:remote.vhf2||"72",
+            supports: typeof remote.supports === "string" ? JSON.parse(remote.supports) : (remote.supports||[]),
+            share_code:remote.share_code, created_at:remote.created_at,
+            tasks: DEFAULT_TASKS.map(t=>({...t,id:uid(),done:false})),
+            volunteers:[], adminDocs:ADMIN_DOCS.map(d=>({...d,status:"pending"})),
+          };
+          setRegattas(p=>[r,...p]); setCurId(r.id); setScreen("detail"); setTab("dashboard");
+          setShowJoin(false); setJoinCode("");
+          flash(`Connecté à « ${r.name} » !`);
+          return;
+        }
+      } catch(e){ console.warn("Supabase search failed:", e); }
+    }
+    flash("Code introuvable. Vérifiez que Supabase est configuré sur les deux appareils.","err");
   };
 
   const delReg = id => {
