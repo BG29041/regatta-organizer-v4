@@ -1,0 +1,47 @@
+═══════════════════════════════════════════════════════════════
+       RÉGATES ORGANIZER - GUIDE D'INSTALLATION RAPIDE
+═══════════════════════════════════════════════════════════════
+
+ÉTAPE 1 : Installer Node.js (si pas déjà fait)
+──────────────────────────────────────────────
+Téléchargez et installez Node.js depuis : https://nodejs.org/
+Choisissez la version LTS (recommandée).
+
+ÉTAPE 2 : Ouvrir un terminal
+────────────────────────────
+Windows : 
+  - Faites un clic droit dans ce dossier
+  - Sélectionnez "Ouvrir dans le terminal" ou "PowerShell"
+
+Mac :
+  - Faites un clic droit sur ce dossier
+  - Sélectionnez "Nouveau terminal au dossier"
+
+ÉTAPE 3 : Installer les dépendances
+───────────────────────────────────
+Tapez cette commande et appuyez sur Entrée :
+
+    npm install
+
+Attendez que l'installation se termine (1-2 minutes).
+
+ÉTAPE 4 : Lancer l'application
+──────────────────────────────
+Tapez cette commande :
+
+    npm run dev
+
+ÉTAPE 5 : Ouvrir l'application
+──────────────────────────────
+Ouvrez votre navigateur (Chrome, Firefox, Edge...) et allez à :
+
+    http://localhost:5173
+
+═══════════════════════════════════════════════════════════════
+                    C'EST TERMINÉ ! 🎉
+═══════════════════════════════════════════════════════════════
+
+Pour arrêter l'application : appuyez sur Ctrl+C dans le terminal.
+Pour la relancer : tapez "npm run dev" à nouveau.
+
+En cas de problème : kakik.amath@gmail.com
