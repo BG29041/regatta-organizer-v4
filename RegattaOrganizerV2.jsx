@@ -1,156 +1,133 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, Users, FileText, ClipboardList, Settings, Award, Clock, CheckCircle, AlertCircle, ChevronDown, ChevronRight, Plus, Trash2, Download, Mail, ExternalLink, Phone, Anchor, MapPin, Ship, Edit, Copy, Eye, Printer } from 'lucide-react';
-
-// ==================== CONSTANTS ====================
-const INITIAL_REGATTA = { 
-  name: '', 
-  date: '', 
-  location: 'Plage du Trez-Hir – Centre Nautique de PLOUGONVELIN',
-  grade: '5C', 
-  supports: [], 
-  expectedParticipants: 50,
-  vhfChannels: { rond1: '69', rond2: '72' },
-  whatsappLink: ''
+const BUILTIN_SB = {
+  url: "https://nqfrxqaryevpbqxoolqs.supabase.co",
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xZnJ4cWFyeWV2cGJxeG9vbHFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NzIzNjgsImV4cCI6MjA5MDU0ODM2OH0.MsxpsEBExh5z7v8tpecV5NrbXyG184uoBTQH9Rh-ulY",
 };
+const builtinReady = () => BUILTIN_SB.url.startsWith("https://") && BUILTIN_SB.key.startsWith("eyJ");
 
 const GRADES = [
-  { value: '5C', label: '5C - Club' },
-  { value: '5B', label: '5B - Locale' },
-  { value: '5A', label: '5A - Régionale' },
-  { value: '4', label: '4 - Nationale' }
+  { value: "5C", label: "5C — Club" },
+  { value: "5B", label: "5B — Locale" },
+  { value: "5A", label: "5A — Régionale" },
+  { value: "4", label: "4 — Nationale" },
 ];
 
-const SUPPORTS = ['Optimist', 'T293', 'RCB', 'ILCA 4', 'ILCA 6', 'ILCA 7', '420', '470', '29er', 'RS Feva', 'OpenBic', 'OpenSkiff', 'Catamaran INC', 'Dériveur IND', 'Windsurf', 'Kitesurf', 'Wing'];
+const SUPPORTS = [
+  "Optimist","T293","RCB","ILCA 4","ILCA 6","ILCA 7","420","470",
+  "29er","RS Feva","OpenBic","OpenSkiff","Catamaran INC","Dériveur IND",
+  "Windsurf","Kitesurf","Wing"
+];
 
-const TASK_CATEGORIES = [
-  { id: 'admin', name: 'Administratif', icon: FileText, color: '#3B82F6' },
-  { id: 'volunteers', name: 'Bénévoles', icon: Users, color: '#10B981' },
-  { id: 'logistics', name: 'Logistique', icon: ClipboardList, color: '#F59E0B' },
-  { id: 'catering', name: 'Restauration', icon: Award, color: '#EF4444' },
-  { id: 'communication', name: 'Communication', icon: Mail, color: '#8B5CF6' }
+const TASK_CATS = [
+  { id: "admin", name: "Administratif", icon: "📁", color: "#3B82F6" },
+  { id: "volunteers", name: "Bénévoles", icon: "🤝", color: "#10B981" },
+  { id: "logistics", name: "Logistique", icon: "📦", color: "#F59E0B" },
+  { id: "catering", name: "Restauration", icon: "🍽️", color: "#EF4444" },
+  { id: "communication", name: "Communication", icon: "📢", color: "#8B5CF6" },
+  { id: "security", name: "Sécurité", icon: "🛟", color: "#DC2626" },
 ];
 
 const DEFAULT_TASKS = [
-  // J-180
-  { id: 1, category: 'admin', title: 'Donner dates à NPI', description: 'Vérifier conflits dates avec AMP', daysBeforeEvent: 180, required: true },
-  { id: 2, category: 'admin', title: 'Déclaration DDTM/AffMar', description: 'Manifestation nautique - formulaire en ligne', daysBeforeEvent: 180, required: true, link: 'https://www.premar-atlantique.gouv.fr/uploads/ckeditor_storage/atlantique/01%20DMN%20fa%C3%A7ade%20Atlantique%202019.pdf' },
-  { id: 3, category: 'logistics', title: 'Réserver matériel mairie', description: 'Barnum, tables, chaises - services techniques', daysBeforeEvent: 180, required: true },
-  // J-60
-  { id: 4, category: 'admin', title: 'Déclaration mairie', description: 'Plan animation, fiche sécurité, assurance, débit boissons', daysBeforeEvent: 60, required: true },
-  { id: 5, category: 'admin', title: 'Déclaration police', description: 'Avec accusé réception AffMar', daysBeforeEvent: 60, required: true },
-  { id: 6, category: 'admin', title: 'Inscription calendrier FFVoile', description: 'Via interface gestion club', daysBeforeEvent: 60, required: true },
-  { id: 7, category: 'admin', title: 'Demande débit de boissons', description: 'Copie à police', daysBeforeEvent: 60, required: false },
-  // J-30
-  { id: 8, category: 'admin', title: 'Créer formulaire inscriptions', description: 'Google Forms', daysBeforeEvent: 30, required: true, link: 'https://docs.google.com/forms/d/1XRVowqJk8F7EPYKIxsQs7fTmUYHv-2OX0ZykQg7MAAs/edit' },
-  { id: 9, category: 'admin', title: 'Rédiger avis de course', description: 'Modèles FFVoile - faire relire arbitres', daysBeforeEvent: 30, required: true },
-  { id: 10, category: 'communication', title: 'Publier avis de course', description: 'Site web, VPB, clubs', daysBeforeEvent: 30, required: true },
-  { id: 11, category: 'volunteers', title: 'Créer formulaire bénévoles', description: 'Inscription en ligne', daysBeforeEvent: 30, required: true, link: 'https://docs.google.com/forms/d/187cx0pEQARNMDnMdrQj59z285LbnhQW9LYnsIgHRTTw/edit' },
-  { id: 12, category: 'volunteers', title: 'Email appel bénévoles', description: 'Avec lien formulaire', daysBeforeEvent: 30, required: true },
-  { id: 13, category: 'admin', title: 'Commander fonds de caisse', description: 'BPGO - 2 caisses', daysBeforeEvent: 30, required: true },
-  { id: 14, category: 'communication', title: 'Contacter sponsors/élus/presse', description: 'Invitations', daysBeforeEvent: 30, required: false },
-  // J-14
-  { id: 15, category: 'logistics', title: 'Demande matériel NPI', description: '5 sécus 15-20CV, 2 sécus 30CV, 10 VHF', daysBeforeEvent: 14, required: true },
-  { id: 16, category: 'admin', title: 'Surveiller réponse AffMar', description: 'À afficher obligatoirement jour J', daysBeforeEvent: 14, required: true },
-  { id: 17, category: 'logistics', title: 'Impressions documents', description: 'Émargement, parcours, numéros utiles', daysBeforeEvent: 14, required: true },
-  { id: 18, category: 'admin', title: 'Mettre à jour fiche numéros utiles', description: 'Selon bénévoles inscrits', daysBeforeEvent: 14, required: true },
-  { id: 19, category: 'logistics', title: 'Élaborer parcours', description: '2 ronds - bouées disponibles', daysBeforeEvent: 14, required: true },
-  // J-7
-  { id: 20, category: 'volunteers', title: 'Relance bénévoles', description: 'Confirmer présences', daysBeforeEvent: 7, required: true },
-  { id: 21, category: 'volunteers', title: 'Email organisation bénévoles', description: 'Détail journée, horaires, postes', daysBeforeEvent: 7, required: true },
-  { id: 22, category: 'volunteers', title: 'Nommer responsable sécu', description: 'Armer bateaux, navette équipe mer', daysBeforeEvent: 7, required: true },
-  { id: 23, category: 'volunteers', title: 'Nommer responsable catamarans', description: 'Attribution équipages, rangement', daysBeforeEvent: 7, required: false },
-  { id: 24, category: 'logistics', title: 'Contacter services techniques', description: 'Confirmation dépôt matériel vendredi', daysBeforeEvent: 7, required: true },
-  { id: 25, category: 'catering', title: 'Inventaire club house', description: 'Vérifier péremptions', daysBeforeEvent: 7, required: true },
-  { id: 26, category: 'catering', title: 'Commander baguettes', description: 'Boulangerie', daysBeforeEvent: 7, required: true },
-  { id: 27, category: 'logistics', title: 'Rappeler CNPK dossards', description: 'À ramener', daysBeforeEvent: 7, required: false },
-  // J-1
-  { id: 28, category: 'logistics', title: 'Gonflage bouées', description: 'Compresseur - samedi après-midi', daysBeforeEvent: 1, required: true },
-  { id: 29, category: 'logistics', title: 'Préparer marocains/livardes', description: 'Pavillonnerie', daysBeforeEvent: 1, required: true },
-  { id: 30, category: 'logistics', title: 'Vérifier mallettes', description: 'Crayon, compas, girouette, feuilles pointage, parcours, numéros', daysBeforeEvent: 1, required: true },
-  { id: 31, category: 'logistics', title: 'Vérifier caisse pharmacie', description: 'Sécu G', daysBeforeEvent: 1, required: true },
-  { id: 32, category: 'catering', title: 'Faire les courses', description: 'Selon liste - prévoir 2ème cafetière', daysBeforeEvent: 1, required: true },
-  { id: 33, category: 'logistics', title: 'Imprimer répartition bénévoles', description: 'Pour accueil barnum et briefing mer', daysBeforeEvent: 1, required: true },
-  { id: 34, category: 'volunteers', title: 'Générer feuille émargement', description: 'Avec noms pré-remplis', daysBeforeEvent: 1, required: true }
+  { id:1, cat:"admin", title:"Donner dates à NPI", desc:"Vérifier conflits dates avec AMP", jb:180, req:true },
+  { id:2, cat:"admin", title:"Déclaration DDTM/AffMar", desc:"Manifestation nautique — formulaire en ligne", jb:180, req:true },
+  { id:3, cat:"admin", title:"Inscription calendrier FFVoile", desc:"Via interface gestion club. Bien renseigner les classes.", jb:180, req:true },
+  { id:4, cat:"logistics", title:"Réserver matériel mairie", desc:"Barnum, tables, chaises, sono, poste électrique, barrières", jb:180, req:true },
+  { id:5, cat:"admin", title:"Déclaration mairie (animation)", desc:"Plan animation, fiche sécurité, assurance, débit boissons. Mail : animation@plougonvelin.fr", jb:60, req:true },
+  { id:6, cat:"admin", title:"Déclaration police municipale", desc:"Avec accusé réception AffMar. Mail : police@plougonvelin.fr", jb:60, req:true },
+  { id:7, cat:"admin", title:"Demande débit de boissons temporaire", desc:"Copie à la police. Groupe 3.", jb:60, req:false },
+  { id:8, cat:"admin", title:"Contacter arbitres, juge et commissaire", desc:"Pour 5C/5B, un arbitre de club suffit. Désigné par le président.", jb:60, req:true },
+  { id:9, cat:"admin", title:"Créer formulaire inscriptions en ligne", desc:"Dupliquer le précédent, modifier la date. Tester le formulaire.", jb:30, req:true },
+  { id:10, cat:"admin", title:"Rédiger et publier l'avis de course", desc:"Intégrer lien d'inscription. Publier sur site web. Transmettre aux clubs VPB et arbitres.", jb:30, req:true },
+  { id:11, cat:"volunteers", title:"Créer formulaire bénévoles", desc:"Inscription Google Forms en ligne", jb:30, req:true },
+  { id:12, cat:"volunteers", title:"Email appel bénévoles", desc:"Avec lien formulaire et tableau Excel", jb:30, req:true },
+  { id:13, cat:"admin", title:"Commander fonds de caisse", desc:"BPGO — 2 caisses (inscriptions + restauration)", jb:30, req:true },
+  { id:14, cat:"communication", title:"Contacter sponsors, élus, presse", desc:"Informer Ouest France, Le Télégramme. Inviter l'équipe municipale. Bulletin municipal.", jb:30, req:false },
+  { id:15, cat:"security", title:"Organiser dispositif de sécurité", desc:"Prévenir pompiers, identifier DZ, trousse de secours, nb bateaux sécu (2 pers/bateau).", jb:30, req:true },
+  { id:16, cat:"logistics", title:"Contacter NPI pour matériel", desc:"5 sécus 15/20 CV, 2 sécus 30 CV, 10 VHF. Accès salle JDM + local essence.", jb:14, req:true },
+  { id:17, cat:"admin", title:"Surveiller réponse AffMar", desc:"Arrive généralement la semaine précédant la régate. À afficher jour J.", jb:14, req:true },
+  { id:18, cat:"logistics", title:"Imprimer émargement bénévoles", desc:"Feuilles de présence", jb:14, req:true },
+  { id:19, cat:"logistics", title:"Imprimer numéros utiles", desc:"Compléter selon bénévoles inscrits. 10 exemplaires : 1/mallette + 2 à terre.", jb:14, req:true },
+  { id:20, cat:"logistics", title:"Imprimer bulletins d'inscription", desc:"Si pas de pré-inscription : plusieurs tableaux/série pour 100 coureurs.", jb:14, req:false },
+  { id:21, cat:"logistics", title:"Imprimer parcours en couleur", desc:"12 ex : 1/mallette + affichage terre. Modifier selon bouées dispo.", jb:14, req:true },
+  { id:22, cat:"logistics", title:"Impressions réglementaires", desc:"Réclamation, pointage, remplact matériel, AC, IC, convocations jury.", jb:14, req:true },
+  { id:23, cat:"logistics", title:"Vérifier stock médailles", desc:"~21 médailles. Vérifier au club house. Impression couleur + étiquetage.", jb:14, req:true },
+  { id:24, cat:"logistics", title:"Récupérer trophées", desc:"Mail aux clubs pour qu'ils pensent à les apporter.", jb:14, req:false },
+  { id:25, cat:"volunteers", title:"Relance bénévoles", desc:"Confirmer les présences, s'assurer que tous les postes sont pourvus.", jb:7, req:true },
+  { id:26, cat:"volunteers", title:"Email organisation bénévoles", desc:"Détail journée, horaires, postes, tableau de répartition.", jb:7, req:true },
+  { id:27, cat:"volunteers", title:"Nommer responsable sécu", desc:"Armer bateaux le matin, navette équipe mer, ranger le soir.", jb:7, req:true },
+  { id:28, cat:"volunteers", title:"Nommer responsable catamarans", desc:"Attribution équipages, aide pour gréer, inspection et rangement.", jb:7, req:false },
+  { id:29, cat:"logistics", title:"Appeler services techniques mairie", desc:"S'assurer que le matériel sera déposé au centre nautique le vendredi.", jb:7, req:true },
+  { id:30, cat:"logistics", title:"Recenser réservations catamarans", desc:"Si dépassement flotte, l'arbitre devra faire des pools — le prévenir.", jb:7, req:false },
+  { id:31, cat:"catering", title:"Inventaire club house + courses", desc:"Vérifier péremptions. Faire liste en fonction de ce qui reste.", jb:7, req:true },
+  { id:32, cat:"catering", title:"Commander baguettes boulangerie", desc:"+ pâte à crêpes si nécessaire.", jb:7, req:true },
+  { id:33, cat:"logistics", title:"Vérifier réservation parking", desc:"Voir avec mairie et policier municipal.", jb:7, req:false },
+  { id:34, cat:"logistics", title:"Gonfler les bouées", desc:"Trouver un compresseur. Pré-gonfler toutes les bouées.", jb:1, req:true },
+  { id:35, cat:"logistics", title:"Préparer marocains, livardes, pavillonnerie", desc:"Vérifier que tout est en état.", jb:1, req:true },
+  { id:36, cat:"logistics", title:"Vérifier les mallettes", desc:"Crayon, compas, girouette, feuilles pointage, parcours, numéros utiles.", jb:1, req:true },
+  { id:37, cat:"security", title:"Vérifier caisse pharmacie sécu G", desc:"Trousse de secours complète.", jb:1, req:true },
+  { id:38, cat:"logistics", title:"Rappeler CNPK dossards", desc:"Contacter Portsall.", jb:1, req:false },
+  { id:39, cat:"catering", title:"Faire les courses", desc:"Intermarché : boissons, nourriture. Prévoir 2ᵉ cafetière. Percolateur café.", jb:1, req:true },
+  { id:40, cat:"volunteers", title:"Imprimer répartition bénévoles", desc:"Pour accueil barnum et briefing mer.", jb:1, req:true },
+  { id:41, cat:"volunteers", title:"Réunion des bénévoles", desc:"Coordination la veille au soir.", jb:1, req:true },
 ];
 
-// Rôles bénévoles enrichis basés sur le fichier Excel
-const VOLUNTEER_ROLES = [
-  // Équipe à terre
-  { id: 'resp_terre', name: 'Responsable terre & bénévoles', location: 'terre', minPeople: 1, timeSlot: '8h-17h' },
-  { id: 'installation', name: 'Installation barnums/tables', location: 'terre', minPeople: 6, timeSlot: '8h-10h30' },
-  { id: 'parking', name: 'Gestion parkings', location: 'terre', minPeople: 4, timeSlot: '8h-10h30' },
-  { id: 'inscription', name: 'Inscriptions coureurs', location: 'terre', minPeople: 4, timeSlot: '9h-11h30' },
-  { id: 'emargement', name: 'Émargement retour', location: 'terre', minPeople: 3, timeSlot: '15h30-17h30' },
-  { id: 'commissaire', name: 'Commissaire aux résultats', location: 'terre', minPeople: 2, timeSlot: '10h-17h' },
-  { id: 'pc_terre', name: 'PC Terre', location: 'terre', minPeople: 1, timeSlot: '12h-16h' },
-  { id: 'buvette_matin', name: 'Buvette/crêpes matin', location: 'terre', minPeople: 2, timeSlot: '9h-13h' },
-  { id: 'buvette_aprem', name: 'Buvette/goûter après-midi', location: 'terre', minPeople: 3, timeSlot: '13h-17h' },
-  { id: 'jury', name: 'Jury (arbitre FFV)', location: 'terre', minPeople: 1, timeSlot: '10h-17h' },
-  // Équipe mer - Rond 1 (PAV/Opti)
-  { id: 'comite_r1', name: 'Comité rond PAV/Opti', location: 'mer', minPeople: 5, timeSlot: '10h30-17h', rond: 1 },
-  { id: 'arrivee_r1', name: 'Arrivée PAV/Opti', location: 'mer', minPeople: 4, timeSlot: '10h30-17h', rond: 1 },
-  { id: 'secu_r1', name: 'Sécu G PAV/Opti', location: 'mer', minPeople: 2, timeSlot: '10h30-17h', rond: 1 },
-  { id: 'mouilleur_r1', name: 'Mouilleur PAV/Opti', location: 'mer', minPeople: 2, timeSlot: '10h30-17h', rond: 1 },
-  // Équipe mer - Rond 2 (Cata/Dér)
-  { id: 'comite_r2', name: 'Comité rond Cata/Dér', location: 'mer', minPeople: 4, timeSlot: '10h30-17h', rond: 2 },
-  { id: 'arrivee_r2', name: 'Arrivée Cata/Dér', location: 'mer', minPeople: 4, timeSlot: '10h30-17h', rond: 2 },
-  { id: 'secu_r2', name: 'Sécu G Cata/Dér', location: 'mer', minPeople: 2, timeSlot: '10h30-17h', rond: 2 },
-  { id: 'mouilleur_r2', name: 'Mouilleur Cata/Dér', location: 'mer', minPeople: 2, timeSlot: '10h30-17h', rond: 2 },
-  // Multi-ronds
-  { id: 'secu_multi', name: 'Sécu G multironds', location: 'mer', minPeople: 2, timeSlot: '10h30-17h' },
-  { id: 'photo', name: 'Photographe', location: 'mer', minPeople: 2, timeSlot: '10h30-17h' },
-  { id: 'entraineur', name: 'Entraîneur AMATH', location: 'mer', minPeople: 1, timeSlot: '10h30-17h' },
-  // Préparatifs
-  { id: 'gonflage', name: 'Gonflage bouées (samedi)', location: 'terre', minPeople: 2, timeSlot: '14h-16h (J-1)' }
+const VOL_ROLES = [
+  { id:"resp_terre", name:"Responsable terre", loc:"terre", min:1, slot:"8h-17h" },
+  { id:"installation", name:"Installation barnums/tables", loc:"terre", min:6, slot:"8h-10h30" },
+  { id:"parking", name:"Gestion parkings", loc:"terre", min:4, slot:"8h-10h30" },
+  { id:"inscription", name:"Inscriptions coureurs", loc:"terre", min:4, slot:"9h-11h30" },
+  { id:"emargement", name:"Émargement retour", loc:"terre", min:3, slot:"15h30-17h30" },
+  { id:"commissaire", name:"Commissaire aux résultats", loc:"terre", min:2, slot:"10h-17h" },
+  { id:"pc_terre", name:"PC Terre", loc:"terre", min:1, slot:"12h-16h" },
+  { id:"buvette_matin", name:"Buvette/crêpes matin", loc:"terre", min:2, slot:"9h-13h" },
+  { id:"buvette_aprem", name:"Buvette/goûter après-midi", loc:"terre", min:3, slot:"13h-17h" },
+  { id:"jury", name:"Jury (arbitre FFV)", loc:"terre", min:1, slot:"10h-17h" },
+  { id:"comite_r1", name:"Comité rond 1 (PAV/Opti)", loc:"mer", min:5, slot:"10h30-17h", rond:1 },
+  { id:"arrivee_r1", name:"Arrivée rond 1", loc:"mer", min:4, slot:"10h30-17h", rond:1 },
+  { id:"secu_r1", name:"Sécu rond 1", loc:"mer", min:2, slot:"10h30-17h", rond:1 },
+  { id:"mouilleur_r1", name:"Mouilleur rond 1", loc:"mer", min:2, slot:"10h30-17h", rond:1 },
+  { id:"comite_r2", name:"Comité rond 2 (Cata/Dér)", loc:"mer", min:4, slot:"10h30-17h", rond:2 },
+  { id:"arrivee_r2", name:"Arrivée rond 2", loc:"mer", min:4, slot:"10h30-17h", rond:2 },
+  { id:"secu_r2", name:"Sécu rond 2", loc:"mer", min:2, slot:"10h30-17h", rond:2 },
+  { id:"mouilleur_r2", name:"Mouilleur rond 2", loc:"mer", min:2, slot:"10h30-17h", rond:2 },
+  { id:"secu_multi", name:"Sécu multironds", loc:"mer", min:2, slot:"10h30-17h" },
+  { id:"photo", name:"Photographe", loc:"mer", min:1, slot:"10h30-17h" },
+  { id:"gonflage", name:"Gonflage bouées (samedi)", loc:"terre", min:2, slot:"14h-16h (J-1)" },
+];
+
+const EMERGENCY = [
+  { name:"CROSS CORSEN", role:"Accident en mer", phone:"196", vhf:"16" },
+  { name:"SAMU", role:"Accident à terre", phone:"15 / 112", vhf:"" },
+  { name:"Pompiers", role:"Accident à terre", phone:"18", vhf:"" },
+  { name:"URGENCE CCA", role:"Après les secours", phone:"01 40 60 37 58", vhf:"" },
 ];
 
 const ADMIN_DOCS = [
-  { id: 'ddtm', name: 'Déclaration DDTM/AffMar', deadline: 15, required: true, link: 'https://www.premar-atlantique.gouv.fr/uploads/ckeditor_storage/atlantique/01%20DMN%20fa%C3%A7ade%20Atlantique%202019.pdf', 
-    piecesJointes: ['Plan de la manifestation (obligatoire)', 'Zone de course (carte SHOM)'] },
-  { id: 'mairie', name: 'Déclaration Mairie', deadline: 60, required: true,
-    piecesJointes: ['Plan animation', 'Fiche sécurité', 'Attestation assurance', 'Demande débit boissons', 'Annuaire téléphonique'] },
-  { id: 'police', name: 'Déclaration Police', deadline: 60, required: true,
-    piecesJointes: ['Accusé réception DDTM'] },
-  { id: 'ffv', name: 'Calendrier FFVoile', deadline: 30, required: true },
-  { id: 'boisson', name: 'Débit boissons temporaire', deadline: 60, required: false,
-    piecesJointes: ['Formulaire complété'] },
-  { id: 'fiche_secu', name: 'Fiche sécurité', deadline: 60, required: true,
-    piecesJointes: ['Plan situation', 'Annuaire contacts', 'Localisation DZ/PMA'] }
+  { id:"ddtm", name:"Déclaration DDTM/AffMar", deadline:15, req:true, pj:["Plan de la manifestation","Zone de course (carte SHOM)","Attestation assurance RC"] },
+  { id:"mairie", name:"Déclaration Mairie", deadline:60, req:true, pj:["Plan animation","Fiche sécurité","Attestation assurance","Demande débit boissons","Annuaire téléphonique"] },
+  { id:"police", name:"Déclaration Police", deadline:60, req:true, pj:["Accusé réception DDTM"] },
+  { id:"ffv", name:"Calendrier FFVoile", deadline:30, req:true, pj:[] },
+  { id:"boisson", name:"Débit boissons temporaire", deadline:60, req:false, pj:["Formulaire complété"] },
+  { id:"fiche_secu", name:"Fiche sécurité", deadline:60, req:true, pj:["Plan situation","Annuaire contacts","Localisation DZ/PMA"] },
 ];
 
-// Liens utiles pour les documents
-const USEFUL_LINKS = {
-  ddtm_formulaire: 'https://www.premar-atlantique.gouv.fr/uploads/ckeditor_storage/atlantique/01%20DMN%20fa%C3%A7ade%20Atlantique%202019.pdf',
-  shom_carte: 'https://data.shom.fr/#001=eyJjIjpbLTUxNzAxNS41ODE0Mjc0Njc2LDYxNjEzNjguNjg1NzQ3Nl0sInoiOjEzLjMzMzUyMzUwNTE2OTczMSwiciI6MCwibCI6W3sidHlwZSI6IklOVEVSTkFMX0xBWUVSIiwiaWRlbnRpZmllciI6IlJBU1RFUl9NQVJJTkVfMzg1N19XTVRTIiwib3BhY2l0eSI6MSwidmlzaWJpbGl0eSI6dHJ1ZX0seyJ0eXBlIjoiSU5URVJOQUxfTEFZRVIiLCJpZGVudGlmaWVyIjoiRkRDX0dFQkNPX1BZUi1QTkdfMzg1N19XTVRTIiwib3BhY2l0eSI6MSwidmlzaWJpbGl0eSI6dHJ1ZX1dfQ==',
-  ffvoile_ac_simplifie: 'https://arbitrage.ffvoile.fr/media/33pc1eic/2025_ac-type-voile-légère-simplifié-5c-5b-sept-25.docx',
-  ffvoile_ac_complet: 'https://arbitrage.ffvoile.fr/media/ywld0ayh/2025_ac-type-voile-legere-def-sept-25-forme-texte.docx',
-  ffvoile_ic_types: 'https://arbitrage.ffvoile.fr/media/xiajwvrh/ic-types-vl-avec-champs-25-28-mars-25-def.docx',
-  ffvoile_fiche_course_rir: 'https://arbitrage.ffvoile.fr/regles-et-documents/ac-ic-annexes-types/',
-  google_form_benevoles: 'https://docs.google.com/forms/d/187cx0pEQARNMDnMdrQj59z285LbnhQW9LYnsIgHRTTw/edit',
-  google_form_inscriptions: 'https://docs.google.com/forms/d/1XRVowqJk8F7EPYKIxsQs7fTmUYHv-2OX0ZykQg7MAAs/edit',
-  inscription_vpb: 'https://tinyurl.com/2r55zrzs'  // Lien inscriptions VPB
+const LINKS = {
+  ddtm: "https://www.premar-atlantique.gouv.fr/uploads/ckeditor_storage/atlantique/01%20DMN%20fa%C3%A7ade%20Atlantique%202019.pdf",
+  shom: "https://data.shom.fr",
+  ac_simple: "https://arbitrage.ffvoile.fr/media/33pc1eic/2025_ac-type-voile-l%C3%A9g%C3%A8re-simplifi%C3%A9-5c-5b-sept-25.docx",
+  ac_complet: "https://arbitrage.ffvoile.fr/media/ywld0ayh/2025_ac-type-voile-legere-def-sept-25-forme-texte.docx",
+  ic_types: "https://arbitrage.ffvoile.fr/media/xiajwvrh/ic-types-vl-avec-champs-25-28-mars-25-def.docx",
+  fiche_rir: "https://arbitrage.ffvoile.fr/regles-et-documents/ac-ic-annexes-types/",
+  form_benevoles: "https://docs.google.com/forms/d/187cx0pEQARNMDnMdrQj59z285LbnhQW9LYnsIgHRTTw/edit",
+  form_inscriptions: "https://docs.google.com/forms/d/1XRVowqJk8F7EPYKIxsQs7fTmUYHv-2OX0ZykQg7MAAs/edit",
+  score: "https://arbitrage.ffvoile.fr/logiciel-de-classement/",
 };
 
-// Tarifs officiels Voile en Pays de Brest
-const TARIFS_VPB = {
-  solitaire: 12,
-  double: 24,
-  double_location_cata: 30
-};
+const MAIL_TEMPLATES = [
+  { id:"benevoles_invitation", label:"📢 Appel bénévoles",
+    subject:"Appel aux bénévoles — Régate {name} du {date}",
+    body:`Bonjour à toutes et à tous,
 
-const EMERGENCY_CONTACTS = [
-  { name: 'CROSS CORSEN', role: 'Accident en mer', phone: '196', vhf: '16' },
-  { name: 'SAMU', role: 'Accident à terre', phone: '15 / 112', vhf: '' },
-  { name: 'Pompiers', role: 'Accident à terre', phone: '18', vhf: '' },
-  { name: 'URGENCE CCA', role: 'Après les secours', phone: '01 40 60 37 58', vhf: '' }
-];
-
-const MAIL_TEMPLATES = {
-  benevoles_invitation: {
-    subject: 'Appel aux bénévoles - Régate {regattaName} du {date}',
-    body: `Bonjour à toutes et à tous,
-
-La régate {regattaName}, organisée par l'Amath, aura lieu le {date} à {location}.
+La régate {name}, organisée par l'Amath, aura lieu le {date} à {location}.
 
 Nous recherchons des bénévoles pour assurer le bon déroulement de cette journée.
 
@@ -158,16 +135,15 @@ Plusieurs postes sont à pourvoir :
 - À terre : installation, inscriptions, émargement, buvette
 - En mer : comité de course, sécurité, mouilleur
 
-👉 Inscrivez-vous via ce formulaire : {formLink}
+👉 Inscrivez-vous via ce formulaire : ${LINKS.form_benevoles}
 
 Même si vous n'êtes pas disponible toute la journée, votre aide sera précieuse !
 
 À bientôt,
-L'équipe du CA`
-  },
-  benevoles_organisation: {
-    subject: 'Organisation bénévoles - Régate du {date}',
-    body: `Bonjour à toutes et à tous,
+L'équipe du CA` },
+  { id:"benevoles_organisation", label:"📋 Organisation bénévoles",
+    subject:"Organisation bénévoles — Régate du {date}",
+    body:`Bonjour à toutes et à tous,
 
 La régate de Voile en Pays de Brest tous supports en voiles légères, organisée par l'Amath, aura lieu dimanche {date}.
 
@@ -175,25 +151,24 @@ Pour celles et ceux qui sont inscrits en tant que bénévoles, voici l'organisat
 
 8H00 : installation du site, montage des barnums
 8H30 : préparation des paniers repas pour les bénévoles
-9h15 : ouverture des inscriptions (prévoir d'arriver 15 minutes avant)
-10h : briefing équipe mer en salle Jardin des Mers (présence requise de tous les bénévoles mer)
-10h30 : départ sur l'eau de l'équipe mer - briefing entraîneurs
+9h15 : ouverture des inscriptions (prévoir d'arriver 15 min avant)
+10h : briefing équipe mer en salle Jardin des Mers
+10h30 : départ sur l'eau de l'équipe mer — briefing entraîneurs
 10h45 : briefing coureurs
 12h : premier départ
-15h30-17h00 : retour à terre. Ouverture de l'émargement retour des coureurs
-17h00-18h : remise des prix - pot de convivialité
+15h30-17h : retour à terre — émargement retour des coureurs
+17h-18h : remise des prix — pot de convivialité
 18h15 : rangement du site
 
 📋 Votre poste : consultez le tableau de répartition ci-joint
 
-NB : N'oubliez pas d'émarger la fiche de présence des bénévoles qui sera à votre disposition sur place.
+NB : N'oubliez pas d'émarger la fiche de présence bénévoles.
 
 À bientôt,
-L'équipe du CA`
-  },
-  mairie: {
-    subject: 'Déclaration manifestation nautique - {regattaName} du {date}',
-    body: `Madame, Monsieur,
+L'équipe du CA` },
+  { id:"mairie", label:"🏛️ Déclaration mairie",
+    subject:"Déclaration manifestation nautique — {name} du {date}",
+    body:`Madame, Monsieur,
 
 L'association AMATH KAKIKOUKA organise une régate de voile légère le {date} à {location}.
 
@@ -208,26 +183,23 @@ Veuillez trouver ci-joint les documents requis :
 
 Informations pratiques :
 - Horaires : 10h à 18h
-- Nombre de participants attendus : {expectedParticipants}
+- Nombre de participants attendus : {participants}
 - Localisation : {location}
 
 Nous restons à votre disposition pour tout renseignement complémentaire.
 
 Cordialement,
-{organizerName}
-AMATH KAKIKOUKA
+Le Bureau — AMATH KAKIKOUKA
 
-Copie : Police municipale (police@plougonvelin.fr)`
-  },
-  ddtm: {
-    subject: 'Déclaration manifestation nautique - {regattaName} du {date}',
-    body: `Madame, Monsieur,
+Copie : Police municipale (police@plougonvelin.fr)` },
+  { id:"ddtm", label:"⚓ Déclaration DDTM",
+    subject:"Déclaration manifestation nautique — {name} du {date}",
+    body:`Madame, Monsieur,
 
 Conformément à la réglementation en vigueur, nous sollicitons l'autorisation d'organiser une manifestation nautique :
 
 INFORMATIONS GÉNÉRALES
-━━━━━━━━━━━━━━━━━━━━━━
-Événement : {regattaName}
+Événement : {name}
 Date : {date}
 Organisateur : AMATH KAKIKOUKA
 Lieu : {location}
@@ -235,33 +207,26 @@ Zone de course : Anse de Bertheaume (voir carte SHOM ci-jointe)
 Grade FFVoile : {grade}
 
 PARTICIPANTS
-━━━━━━━━━━━━━━━━━━━━━━
-Nombre attendu : {expectedParticipants} coureurs
+Nombre attendu : {participants} coureurs
 Supports : {supports}
 
 DISPOSITIF DE SÉCURITÉ
-━━━━━━━━━━━━━━━━━━━━━━
-- Bateaux de sécurité avec personnel qualifié (ratio selon règlement FFVoile)
-- Communication VHF sur canaux {vhfChannel} et 72
+- Bateaux de sécurité avec personnel qualifié
+- Communication VHF sur canaux {vhf1} et {vhf2}
 - PC Terre en liaison permanente avec l'équipe mer
 - Émargement obligatoire départ et retour
 
 PIÈCES JOINTES
-━━━━━━━━━━━━━━━━━━━━━━
 ☐ Plan de la zone de course (carte SHOM)
 ☐ Plan de la manifestation à terre
 ☐ Attestation d'assurance RC
 
-Nous sollicitons votre autorisation pour cette manifestation.
-
 Cordialement,
-{organizerName}
-AMATH KAKIKOUKA
-kakik.amath@gmail.com`
-  },
-  npi: {
-    subject: 'Demande matériel - Régate du {date}',
-    body: `Bonjour,
+Le Bureau — AMATH KAKIKOUKA
+kakik.amath@gmail.com` },
+  { id:"npi", label:"🚤 Demande matériel NPI",
+    subject:"Demande matériel — Régate du {date}",
+    body:`Bonjour,
 
 L'Amath organise une régate le {date}.
 
@@ -274,15 +239,64 @@ Ainsi que l'accès au bâtiment :
 - Salle Jardin des Mers
 - Local essence
 
-Merci de nous confirmer la disponibilité de ce matériel.
+Merci de nous confirmer la disponibilité.
 
 Cordialement,
-{organizerName}
-AMATH KAKIKOUKA`
-  },
-  presse: {
-    subject: 'Résultats régate {regattaName} du {date}',
-    body: `{regattaName} - {date}
+Le Bureau — AMATH KAKIKOUKA` },
+  { id:"debit_boissons", label:"🍺 Débit boissons",
+    subject:"Demande débit de boissons temporaire — {name} du {date}",
+    body:`DEMANDE D'AUTORISATION D'OUVRIR UN DEBIT TEMPORAIRE
+
+Monsieur le Maire,
+
+Je soussigné :
+Nom : GUERIN
+Prénoms : LOIC
+Qualité : Président de l'association AMATH KAKIKOUKA
+Domicile : 6 boulevard de la mer
+CP/ville : 29217 PLOUGONVELIN
+
+Ai l'honneur de solliciter l'autorisation d'établir un débit de boisson temporaire à :
+Lieu : Centre nautique du Trez-Hir
+Du : {date} à 13h00  Au : {date} à 18h00
+Motif : {name} — Critérium de Bassin Voile en Pays de Brest
+Boissons de 3ᵉ catégorie (groupe 3)
+
+Fait à Plougonvelin le __/__/____
+
+SIGNATURE DU DEMANDEUR` },
+  { id:"fiche_securite", label:"🛡️ Fiche sécurité",
+    subject:"Fiche sécurité — {name} du {date}",
+    body:`FICHE SÉCURITÉ — MANIFESTATION NAUTIQUE
+
+Nom : {name}
+Date : {date}
+Organisateur : AMATH KAKIKOUKA
+
+PARTIE TERRE
+Présence public : 10h-12h puis 15h30-18h
+
+DESCRIPTION
+- Jauge max : {participants} personnes
+- Parkings : face office tourisme + rue de Kerouanen Stang
+- Barnum devant centre nautique (extincteur présent)
+- Boissons groupe 3 de 10h à 19h
+
+RESPONSABLES SÉCURITÉ
+Responsable principal : GUERIN Loïc — 06 66 99 19 89
+Responsable adjoint : BLANCKAERT Godelieve — 06 15 87 10 03
+Nombre de bénévoles : ~20
+
+SECOURS / SANTÉ
+Évacuation : Appel SDIS (18)
+DZ : Boulevard de la mer (48°20'55.5"N / -4°42'8.87"W)
+
+COMMODITÉS
+Eau gratuite : Centre nautique
+WC : Centre nautique + WC public entrée plage` },
+  { id:"presse", label:"📰 Article presse",
+    subject:"Résultats régate {name} du {date}",
+    body:`{name} — {date}
 
 [RÉSUMÉ : météo, ambiance, nombre de participants]
 
@@ -292,1462 +306,1007 @@ Résultats :
 Prochaine régate : [date]
 
 Contact : AMATH KAKIKOUKA
-Photos disponibles sur demande.`
-  },
-  debit_boissons: {
-    subject: 'Demande débit de boissons temporaire - {regattaName} du {date}',
-    body: `DEMANDE D'AUTORISATION D'OUVRIR UN DEBIT TEMPORAIRE
+Photos disponibles sur demande.
 
-Monsieur le Maire,
+---
+Contacts presse :
+- Le Télégramme : cessoumich@gmail.com
+- Ouest France : gery.baldenweck@orange.fr
 
-Je soussigné(e) :
-Nom : GUERIN
-Prénoms : LOIC
-Profession ou qualité : Président de l'association AMATH KAKIKOUKA
-Domicile : 6 boulevard de la mer
-CP/ville : 29217 PLOUGONVELIN
+⚠️ Envoyer au plus tard le mardi matin suivant la régate.` },
+];
 
-Ai l'honneur de solliciter de votre bienveillance l'autorisation d'établir un débit de boisson temporaire à :
+// ═══════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════
+const uid = () => Math.random().toString(36).slice(2,10);
+const shareCode = () => { const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s=""; for(let i=0;i<6;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; };
+const fmtDate = d => d ? new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}) : "";
+const fmtShort = d => d ? new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"short"}) : "";
+const daysUntil = d => { if(!d) return null; const diff=new Date(d)-new Date(); return Math.ceil(diff/864e5); };
+const calcDL = (ev,jb) => { if(!ev) return null; const d=new Date(ev); d.setDate(d.getDate()-jb); return d; };
 
-Lieu : Centre nautique du Trez-Hir
-Du : {date} à 13h00
-Au : {date} à 18h00
-
-Motif : ☒ Autre : {regattaName} - Critérium de Bassin Voile en Pays de Brest
-
-Boissons de 3ème catégorie (groupe 3)
-
-Fait à Plougonvelin le __/__/____
-
-SIGNATURE DU DEMANDEUR
-
-
-Je souhaite recevoir mon document finalisé à l'adresse mail :
-kakik.amath@gmail.com`
-  },
-  fiche_securite: {
-    subject: 'Fiche sécurité - {regattaName} du {date}',
-    body: `FICHE SÉCURITÉ - MANIFESTATION NAUTIQUE
-
-Nom de la manifestation : {regattaName}
-Date : {date}
-Organisateur : AMATH KAKIKOUKA
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PARTIE TERRE – ENREGISTREMENT – POT
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Présence public : 10h-12h puis 15h30-18h
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-LA MANIFESTATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Description :
-- Date : {date}
-- Jauge max : {expectedParticipants} personnes
-- Parkings : 
-  1. Face office du tourisme
-  2. Rue de Kerouanen Stang
-- Barnum devant centre nautique (extincteur présent)
-- Boissons groupe 3 de 10h à 19h
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RESPONSABLES SÉCURITÉ
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Responsable principal : GUERIN Loïc - 06 66 99 19 89
-Responsable adjoint : BLANCKAERT Godelieve - 06 15 87 10 03
-Nombre de bénévoles : ~20
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SECOURS / SANTÉ
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Évacuation : Appel SDIS (18)
-DZ : Boulevard de la mer
-  Latitude : 48°20'55,5"
-  Longitude : -4°42'8,87"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-COMMODITÉS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Eau gratuite : Centre nautique
-WC : Centre nautique + WC public entrée plage`
-  }
+const fillMail = (tpl, r) => {
+  const reps = { "{name}":r.name||"Régate", "{date}":fmtDate(r.date), "{location}":r.location||"", "{grade}":r.grade||"", "{participants}":r.expected_participants||"50", "{supports}":(r.supports||[]).join(", "), "{vhf1}":r.vhf1||"69", "{vhf2}":r.vhf2||"72" };
+  let s=tpl.subject, b=tpl.body;
+  Object.entries(reps).forEach(([k,v])=>{ s=s.replaceAll(k,v); b=b.replaceAll(k,v); });
+  return {subject:s, body:b};
 };
 
-// ==================== UTILITY FUNCTIONS ====================
-const calcDeadline = (eventDate, daysBefore) => {
-  if (!eventDate) return null;
-  const d = new Date(eventDate);
-  d.setDate(d.getDate() - daysBefore);
-  return d;
-};
+const loadLS = k => { try{ return JSON.parse(localStorage.getItem(k)); }catch{ return null; } };
+const saveLS = (k,v) => { try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} };
 
-const formatDate = (date) => date ? new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
-const formatDateShort = (date) => date ? new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '-';
-
-const getDaysUntil = (date) => {
-  if (!date) return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const target = new Date(date); target.setHours(0,0,0,0);
-  return Math.ceil((target - today) / 86400000);
-};
-
-const getStatus = (task, eventDate, completed) => {
-  if (completed.includes(task.id)) return 'completed';
-  const dl = calcDeadline(eventDate, task.daysBeforeEvent);
-  const days = getDaysUntil(dl);
-  if (days === null) return 'pending';
-  if (days < 0) return 'overdue';
-  if (days <= 3) return 'urgent';
-  if (days <= 7) return 'soon';
-  return 'pending';
-};
-
-const generateMailContent = (templateKey, regatta, volunteers) => {
-  const template = MAIL_TEMPLATES[templateKey];
-  if (!template) return { subject: '', body: '' };
-  
-  let subject = template.subject;
-  let body = template.body;
-  
-  const replacements = {
-    '{regattaName}': regatta.name || 'Régate',
-    '{date}': formatDate(regatta.date),
-    '{location}': regatta.location || '',
-    '{grade}': regatta.grade || '',
-    '{expectedParticipants}': regatta.expectedParticipants || '50',
-    '{supports}': (regatta.supports || []).join(', '),
-    '{vhfChannel}': regatta.vhfChannels?.rond1 || '69',
-    '{formLink}': 'https://docs.google.com/forms/d/187cx0pEQARNMDnMdrQj59z285LbnhQW9LYnsIgHRTTw/edit',
-    '{organizerName}': 'Le Bureau'
-  };
-  
-  Object.entries(replacements).forEach(([key, value]) => {
-    subject = subject.replace(new RegExp(key, 'g'), value);
-    body = body.replace(new RegExp(key, 'g'), value);
-  });
-  
-  return { subject, body };
-};
-
-// ==================== COMPONENTS ====================
-const TabNav = ({ active, setActive }) => {
-  const tabs = [
-    { id: 'dashboard', label: 'Accueil', icon: Calendar },
-    { id: 'tasks', label: 'Planning', icon: Clock },
-    { id: 'admin', label: 'Admin', icon: FileText },
-    { id: 'volunteers', label: 'Bénévoles', icon: Users },
-    { id: 'documents', label: 'Documents', icon: Printer },
-    { id: 'mails', label: 'Mails', icon: Mail },
-    { id: 'avis', label: 'Avis course', icon: Award },
-    { id: 'settings', label: 'Config', icon: Settings }
-  ];
-  return (
-    <nav className="bg-white shadow-sm border-b overflow-x-auto">
-      <div className="flex gap-1 p-2">
-        {tabs.map(t => {
-          const I = t.icon;
-          return (
-            <button key={t.id} onClick={() => setActive(t.id)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${active === t.id ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-              <I size={16}/>{t.label}
-            </button>
-          );
-        })}
-      </div>
-    </nav>
-  );
-};
-
-// Dashboard avec KPIs enrichis
-const Dashboard = ({ regatta, tasks, completed, volunteers }) => {
-  const progress = tasks.length ? Math.round((completed.length / tasks.length) * 100) : 0;
-  const urgent = tasks.filter(t => ['urgent','overdue'].includes(getStatus(t, regatta.date, completed)));
-  const days = getDaysUntil(regatta.date);
-  
-  const totalNeeded = VOLUNTEER_ROLES.reduce((s, r) => s + r.minPeople, 0);
-  const assigned = volunteers.filter(v => v.role).length;
-  const merVolunteers = volunteers.filter(v => VOLUNTEER_ROLES.find(r => r.id === v.role)?.location === 'mer').length;
-  const terreVolunteers = volunteers.filter(v => VOLUNTEER_ROLES.find(r => r.id === v.role)?.location === 'terre').length;
-
-  return (
-    <div className="space-y-4">
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-blue-500">
-          <div className="text-xs text-gray-500">Jours restants</div>
-          <div className="text-2xl font-bold text-blue-600">{days ?? '-'}</div>
-          <div className="text-xs text-gray-400">{formatDateShort(regatta.date)}</div>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-green-500">
-          <div className="text-xs text-gray-500">Avancement</div>
-          <div className="text-2xl font-bold text-green-600">{progress}%</div>
-          <div className="text-xs text-gray-400">{completed.length}/{tasks.length} tâches</div>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-orange-500">
-          <div className="text-xs text-gray-500">Urgentes</div>
-          <div className="text-2xl font-bold text-orange-600">{urgent.length}</div>
-          <div className="text-xs text-gray-400">à traiter</div>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border-l-4 border-purple-500">
-          <div className="text-xs text-gray-500">Bénévoles</div>
-          <div className="text-2xl font-bold text-purple-600">{assigned}/{totalNeeded}</div>
-          <div className="text-xs text-gray-400">🌊 {merVolunteers} | 🏖️ {terreVolunteers}</div>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="bg-white rounded-xl p-4 shadow-sm">
-        <div className="text-sm font-medium mb-2">Progression globale</div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
-          <div className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all" style={{width:`${progress}%`}}/>
-        </div>
-      </div>
-
-      {/* Alertes urgentes */}
-      {urgent.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <div className="flex items-center gap-2 text-red-800 font-medium text-sm mb-2">
-            <AlertCircle size={16}/>Tâches urgentes
-          </div>
-          <div className="space-y-1.5">
-            {urgent.slice(0, 5).map(t => (
-              <div key={t.id} className="flex justify-between items-center bg-white rounded p-2 text-sm">
-                <span>{t.title}</span>
-                <span className="text-red-600 text-xs font-medium">
-                  {(() => {
-                    const d = getDaysUntil(calcDeadline(regatta.date, t.daysBeforeEvent));
-                    return d < 0 ? `${-d}j retard` : `J-${t.daysBeforeEvent}`;
-                  })()}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Liens rapides */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <a href="https://www.premar-atlantique.gouv.fr/uploads/ckeditor_storage/atlantique/01%20DMN%20fa%C3%A7ade%20Atlantique%202019.pdf" 
-          target="_blank" rel="noopener noreferrer" className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 text-blue-600 font-medium text-sm mb-1">
-            <FileText size={18}/>Déclaration DDTM<ExternalLink size={12}/>
-          </div>
-          <p className="text-xs text-gray-500">Formulaire manifestation nautique</p>
-        </a>
-        <a href="https://data.shom.fr/#001=eyJjIjpbLTUxNzAxNS41ODE0Mjc0Njc2LDYxNjEzNjguNjg1NzQ3Nl0sInoiOjEzLjMzMzUyMzUwNTE2OTczMSwiciI6MCwibCI6W3sidHlwZSI6IklOVEVSTkFMX0xBWUVSIiwiaWRlbnRpZmllciI6IlJBU1RFUl9NQVJJTkVfMzg1N19XTVRTIiwib3BhY2l0eSI6MSwidmlzaWJpbGl0eSI6dHJ1ZX0seyJ0eXBlIjoiSU5URVJOQUxfTEFZRVIiLCJpZGVudGlmaWVyIjoiRkRDX0dFQkNPX1BZUi1QTkdfMzg1N19XTVRTIiwib3BhY2l0eSI6MSwidmlzaWJpbGl0eSI6dHJ1ZX1dfQ==" 
-          target="_blank" rel="noopener noreferrer" className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 text-cyan-600 font-medium text-sm mb-1">
-            <MapPin size={18}/>Carte SHOM<ExternalLink size={12}/>
-          </div>
-          <p className="text-xs text-gray-500">Zone de course Anse de Bertheaume</p>
-        </a>
-        <a href="https://arbitrage.ffvoile.fr/regles-et-documents/ac-ic-annexes-types/" target="_blank" rel="noopener noreferrer"
-          className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 text-green-600 font-medium text-sm mb-1">
-            <Award size={18}/>Documents FFVoile<ExternalLink size={12}/>
-          </div>
-          <p className="text-xs text-gray-500">AC, IC, Fiche Course RIR</p>
-        </a>
-        <a href="https://docs.google.com/forms/d/1XRVowqJk8F7EPYKIxsQs7fTmUYHv-2OX0ZykQg7MAAs/edit" target="_blank" rel="noopener noreferrer"
-          className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 text-orange-600 font-medium text-sm mb-1">
-            <ClipboardList size={18}/>Pré-inscriptions<ExternalLink size={12}/>
-          </div>
-          <p className="text-xs text-gray-500">Formulaire coureurs</p>
-        </a>
-        <a href="https://docs.google.com/forms/d/187cx0pEQARNMDnMdrQj59z285LbnhQW9LYnsIgHRTTw/edit" target="_blank" rel="noopener noreferrer"
-          className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 text-purple-600 font-medium text-sm mb-1">
-            <Users size={18}/>Inscription bénévoles<ExternalLink size={12}/>
-          </div>
-          <p className="text-xs text-gray-500">Formulaire Google</p>
-        </a>
-        <a href="https://arbitrage.ffvoile.fr/logiciel-de-classement/" target="_blank" rel="noopener noreferrer"
-          className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-2 text-indigo-600 font-medium text-sm mb-1">
-            <Award size={18}/>SCORE FFVoile<ExternalLink size={12}/>
-          </div>
-          <p className="text-xs text-gray-500">Logiciel résultats</p>
-        </a>
-      </div>
-
-      {/* Infos régate */}
-      {regatta.name && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-          <div className="flex items-center gap-2 mb-2">
-            <Anchor className="text-blue-600" size={20}/>
-            <span className="font-semibold">{regatta.name}</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            <div><span className="text-gray-500">Date:</span> {formatDate(regatta.date)}</div>
-            <div><span className="text-gray-500">Lieu:</span> {regatta.location}</div>
-            <div><span className="text-gray-500">Grade:</span> {regatta.grade}</div>
-            <div><span className="text-gray-500">Supports:</span> {regatta.supports?.length || 0}</div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Panel Tâches
-const TasksPanel = ({ regatta, tasks, completed, setCompleted }) => {
-  const [filter, setFilter] = useState('all');
-  const [expanded, setExpanded] = useState(TASK_CATEGORIES.map(c => c.id));
-  
-  const toggle = (id) => setCompleted(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-  const toggleCat = (id) => setExpanded(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
-
-  const filtered = tasks.filter(t => {
-    if (filter === 'all') return true;
-    const s = getStatus(t, regatta.date, completed);
-    return filter === 'pending' ? s !== 'completed' : filter === 'completed' ? s === 'completed' : ['urgent','overdue'].includes(s);
-  });
-
-  const grouped = TASK_CATEGORIES.map(c => ({...c, tasks: filtered.filter(t => t.category === c.id)})).filter(g => g.tasks.length);
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl p-3 shadow-sm flex flex-wrap gap-2">
-        {['all','pending','urgent','completed'].map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${filter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>
-            {f === 'all' ? 'Toutes' : f === 'pending' ? 'À faire' : f === 'urgent' ? 'Urgentes' : 'Faites'}
-          </button>
-        ))}
-      </div>
-
-      {grouped.map(g => {
-        const I = g.icon;
-        const exp = expanded.includes(g.id);
-        const done = g.tasks.filter(t => completed.includes(t.id)).length;
-        return (
-          <div key={g.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <button onClick={() => toggleCat(g.id)} className="w-full flex items-center justify-between p-3 hover:bg-gray-50">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{backgroundColor:`${g.color}20`}}>
-                  <I size={16} style={{color:g.color}}/>
-                </div>
-                <div className="text-left">
-                  <div className="font-medium text-sm">{g.name}</div>
-                  <div className="text-xs text-gray-500">{done}/{g.tasks.length}</div>
-                </div>
-              </div>
-              {exp ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}
-            </button>
-            {exp && (
-              <div className="border-t divide-y">
-                {g.tasks.map(t => {
-                  const st = getStatus(t, regatta.date, completed);
-                  const dl = calcDeadline(regatta.date, t.daysBeforeEvent);
-                  const d = getDaysUntil(dl);
-                  return (
-                    <div key={t.id} className={`p-3 flex items-start gap-3 ${st === 'completed' ? 'bg-gray-50' : ''}`}>
-                      <button onClick={() => toggle(t.id)}
-                        className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${st === 'completed' ? 'bg-green-500 border-green-500 text-white' : st === 'overdue' ? 'border-red-500' : st === 'urgent' ? 'border-orange-500' : 'border-gray-300'}`}>
-                        {st === 'completed' && <CheckCircle size={12}/>}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-sm font-medium ${st === 'completed' ? 'text-gray-400 line-through' : ''}`}>
-                          {t.title}{t.required && <span className="text-red-500 ml-1">*</span>}
-                          {t.link && <a href={t.link} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-500"><ExternalLink size={12} className="inline"/></a>}
-                        </div>
-                        <div className="text-xs text-gray-500 truncate">{t.description}</div>
-                      </div>
-                      <div className="text-right text-xs shrink-0">
-                        <div className={st === 'overdue' ? 'text-red-600 font-medium' : st === 'urgent' ? 'text-orange-600 font-medium' : st === 'completed' ? 'text-green-600' : 'text-gray-600'}>
-                          {st === 'completed' ? '✓' : `J-${t.daysBeforeEvent}`}
-                        </div>
-                        <div className="text-gray-400">{formatDateShort(dl)}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-// Panel Admin enrichi
-const AdminPanel = ({ regatta, docs, setDocs }) => {
-  const update = (id, f, v) => setDocs(p => p.map(d => d.id === id ? {...d, [f]: v} : d));
-  
-  return (
-    <div className="space-y-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="font-medium text-blue-800 text-sm mb-2">📋 Délais réglementaires</div>
-        <div className="text-xs text-blue-700 space-y-1">
-          <p>• <strong>Maritime (AffMar)</strong> : 15 jours avant</p>
-          <p>• <strong>Plans d'eau intérieurs</strong> : 2 mois (préfecture/VNF)</p>
-          <p>• <strong>Mairie</strong> : 2 mois avant</p>
-          <p>• <strong>FFVoile</strong> : 1 mois (club) / 2 mois (plan d'eau intérieur)</p>
-        </div>
-      </div>
-
-      {/* Liens utiles */}
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="font-medium text-sm mb-3">🔗 Ressources</div>
-        <div className="grid grid-cols-2 gap-2">
-          <a href="https://www.premar-atlantique.gouv.fr/uploads/ckeditor_storage/atlantique/01%20DMN%20fa%C3%A7ade%20Atlantique%202019.pdf" 
-            target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 p-2 bg-blue-50 rounded text-sm text-blue-700 hover:bg-blue-100">
-            <FileText size={16}/>Formulaire DDTM<ExternalLink size={12}/>
-          </a>
-          <a href="https://data.shom.fr/#001=eyJjIjpbLTUxNzAxNS41ODE0Mjc0Njc2LDYxNjEzNjguNjg1NzQ3Nl0sInoiOjEzLjMzMzUyMzUwNTE2OTczMSwiciI6MCwibCI6W3sidHlwZSI6IklOVEVSTkFMX0xBWUVSIiwiaWRlbnRpZmllciI6IlJBU1RFUl9NQVJJTkVfMzg1N19XTVRTIiwib3BhY2l0eSI6MSwidmlzaWJpbGl0eSI6dHJ1ZX0seyJ0eXBlIjoiSU5URVJOQUxfTEFZRVIiLCJpZGVudGlmaWVyIjoiRkRDX0dFQkNPX1BZUi1QTkdfMzg1N19XTVRTIiwib3BhY2l0eSI6MSwidmlzaWJpbGl0eSI6dHJ1ZX1dfQ==" 
-            target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 p-2 bg-cyan-50 rounded text-sm text-cyan-700 hover:bg-cyan-100">
-            <MapPin size={16}/>Carte SHOM<ExternalLink size={12}/>
-          </a>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm">
-        <div className="p-3 border-b font-medium text-sm">Documents administratifs</div>
-        <div className="divide-y">
-          {docs.map(d => {
-            const dl = calcDeadline(regatta.date, d.deadline);
-            const days = getDaysUntil(dl);
-            const docInfo = ADMIN_DOCS.find(ad => ad.id === d.id);
-            return (
-              <div key={d.id} className="p-3">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{d.name}</span>
-                    {d.required && <span className="text-xs bg-red-100 text-red-600 px-1.5 rounded">Oblig.</span>}
-                    {docInfo?.link && (
-                      <a href={docInfo.link} target="_blank" rel="noopener noreferrer" className="text-blue-500">
-                        <ExternalLink size={14}/>
-                      </a>
-                    )}
-                  </div>
-                  <span className={`text-xs ${d.status === 'done' ? 'text-green-600' : days && days < 7 ? 'text-red-600' : 'text-gray-500'}`}>
-                    {d.status === 'done' ? '✓ Fait' : `J-${d.deadline}`}
-                  </span>
-                </div>
-                
-                {/* Pièces jointes requises */}
-                {docInfo?.piecesJointes && (
-                  <div className="mb-2 text-xs text-gray-500">
-                    <span className="font-medium">PJ requises :</span> {docInfo.piecesJointes.join(', ')}
-                  </div>
-                )}
-                
-                <select value={d.status || 'pending'} onChange={e => update(d.id, 'status', e.target.value)}
-                  className="w-full px-2 py-1.5 border rounded text-xs">
-                  <option value="pending">À faire</option>
-                  <option value="inProgress">En cours</option>
-                  <option value="done">Terminé</option>
-                </select>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Rappel DDTM */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-        <div className="font-medium text-amber-800 text-sm mb-2">⚠️ Rappel DDTM</div>
-        <div className="text-xs text-amber-700 space-y-1">
-          <p>Le <strong>plan de la manifestation</strong> est <strong>obligatoire</strong> pour toute demande.</p>
-          <p>À joindre également :</p>
-          <ul className="list-disc list-inside ml-2">
-            <li>Zone de course (capture carte SHOM)</li>
-            <li>Attestation d'assurance RC</li>
-            <li>Liste des bateaux de sécurité</li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="font-medium text-sm mb-3">📞 Contacts administratifs</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          <div className="bg-gray-50 p-2 rounded">
-            <strong>Mairie Animation</strong><br/>
-            <a href="mailto:animation@plougonvelin.fr" className="text-blue-600">animation@plougonvelin.fr</a>
-          </div>
-          <div className="bg-gray-50 p-2 rounded">
-            <strong>Police municipale</strong><br/>
-            <a href="mailto:police@plougonvelin.fr" className="text-blue-600">police@plougonvelin.fr</a>
-          </div>
-          <div className="bg-gray-50 p-2 rounded">
-            <strong>Ouest France</strong><br/>
-            <a href="mailto:gery.baldenweck@orange.fr" className="text-blue-600">gery.baldenweck@orange.fr</a>
-          </div>
-          <div className="bg-gray-50 p-2 rounded">
-            <strong>Le Télégramme</strong><br/>
-            <a href="mailto:cessoumich@gmail.com" className="text-blue-600">cessoumich@gmail.com</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Panel Bénévoles enrichi
-const VolunteersPanel = ({ volunteers, setVolunteers, regatta }) => {
-  const [showAdd, setShowAdd] = useState(false);
-  const [showSync, setShowSync] = useState(false);
-  const [newV, setNewV] = useState({ name:'', firstName:'', email:'', phone:'', role:'', permisB: false, panierRepas: 'oui', dietaryRestriction: '' });
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'byRole' | 'byLocation'
-  const [importData, setImportData] = useState('');
-  const [jsonbinConfig, setJsonbinConfig] = useState({ binId: '', apiKey: '' });
-  const [syncStatus, setSyncStatus] = useState('');
-  const [syncMode, setSyncMode] = useState('manual'); // 'manual' | 'jsonbin'
-
-  const add = () => { 
-    if(newV.name) { 
-      setVolunteers(p => [...p, {...newV, id: Date.now()}]); 
-      setNewV({ name:'', firstName:'', email:'', phone:'', role:'', permisB: false, panierRepas: 'oui', dietaryRestriction: '' }); 
-      setShowAdd(false); 
-    }
-  };
-  const remove = id => setVolunteers(p => p.filter(v => v.id !== id));
-  const upd = (id, f, v) => setVolunteers(p => p.map(x => x.id === id ? {...x, [f]: v} : x));
-
-  // Import depuis CSV (copié depuis Google Sheets)
-  const importFromCSV = () => {
-    if (!importData.trim()) return;
-    const lines = importData.trim().split('\n');
-    const newVolunteers = [];
-    lines.forEach((line, idx) => {
-      if (idx === 0 && line.toLowerCase().includes('horodateur')) return; // Skip header
-      const cols = line.split('\t');
-      if (cols.length >= 2) {
-        newVolunteers.push({
-          id: Date.now() + idx,
-          name: cols[1] || '',
-          firstName: cols[2] || '',
-          email: cols[3] || '',
-          phone: cols[4] || '',
-          role: '',
-          permisB: cols[5]?.toLowerCase().includes('oui'),
-          panierRepas: cols[6]?.toLowerCase().includes('veggie') ? 'veggie' : cols[6]?.toLowerCase().includes('non') ? 'non' : 'oui'
-        });
-      }
-    });
-    if (newVolunteers.length > 0) {
-      setVolunteers(p => [...p, ...newVolunteers]);
-      setImportData('');
-      setSyncStatus(`✅ ${newVolunteers.length} bénévole(s) importé(s) !`);
-      setTimeout(() => setSyncStatus(''), 3000);
-    }
-  };
-
-  // Synchronisation avec JSONbin
-  const syncFromJSONbin = async () => {
-    if (!jsonbinConfig.binId || !jsonbinConfig.apiKey) {
-      setSyncStatus('❌ Configurez d\'abord le Bin ID et l\'API Key');
-      return;
-    }
-    
-    setSyncStatus('🔄 Synchronisation en cours...');
-    
+// ═══════════════════════════════════════════════
+// SUPABASE CLIENT (lightweight fetch)
+// ═══════════════════════════════════════════════
+const makeSB = (url,key) => {
+  if(!url||!key) return null;
+  const base = url.replace(/\/$/,"");
+  const hdr = { "Content-Type":"application/json", apikey:key, Authorization:`Bearer ${key}` };
+  const req = async (path,opts={}) => {
     try {
-      const response = await fetch(`https://api.jsonbin.io/v3/b/${jsonbinConfig.binId}/latest`, {
-        headers: { 'X-Master-Key': jsonbinConfig.apiKey }
-      });
-      
-      if (!response.ok) throw new Error('Erreur ' + response.status);
-      
-      const data = await response.json();
-      const remoteVolunteers = data.record || [];
-      
-      // Fusionner avec les bénévoles existants (éviter les doublons par ID)
-      const existingIds = new Set(volunteers.map(v => v.id));
-      const newOnes = remoteVolunteers.filter(v => !existingIds.has(v.id));
-      
-      if (newOnes.length > 0) {
-        setVolunteers(p => [...p, ...newOnes]);
-        setSyncStatus(`✅ ${newOnes.length} nouveau(x) bénévole(s) synchronisé(s) !`);
-      } else {
-        setSyncStatus('✓ Déjà à jour');
-      }
-      
-      // Sauvegarder la config
-      localStorage.setItem('jsonbinConfig', JSON.stringify(jsonbinConfig));
-      
-    } catch (error) {
-      setSyncStatus('❌ Erreur: ' + error.message);
-    }
-    
-    setTimeout(() => setSyncStatus(''), 5000);
+      const r = await fetch(`${base}/rest/v1/${path}`,{...opts, headers:{...hdr, Prefer: opts.method==="POST"?"return=representation":"return=minimal", ...opts.headers}});
+      if(!r.ok) throw new Error(r.status);
+      const t = await r.text(); return t ? JSON.parse(t) : null;
+    } catch(e) { console.warn("SB:",e); return null; }
   };
-
-  // Charger la config JSONbin sauvegardée
-  useEffect(() => {
-    const saved = localStorage.getItem('jsonbinConfig');
-    if (saved) {
-      try {
-        setJsonbinConfig(JSON.parse(saved));
-      } catch (e) {}
-    }
-  }, []);
-
-  const byRole = VOLUNTEER_ROLES.map(r => ({...r, vols: volunteers.filter(v => v.role === r.id)}));
-  const merRoles = byRole.filter(r => r.location === 'mer');
-  const terreRoles = byRole.filter(r => r.location === 'terre');
-
-  const totalNeeded = VOLUNTEER_ROLES.reduce((s, r) => s + r.minPeople, 0);
-  const totalAssigned = volunteers.filter(v => v.role).length;
-
-  return (
-    <div className="space-y-4">
-      {/* Stats rapides */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="bg-white rounded-xl p-3 shadow-sm text-center">
-          <div className="text-2xl font-bold text-blue-600">{volunteers.length}</div>
-          <div className="text-xs text-gray-500">Total inscrits</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm text-center">
-          <div className="text-2xl font-bold text-green-600">{totalAssigned}</div>
-          <div className="text-xs text-gray-500">Assignés</div>
-        </div>
-        <div className="bg-white rounded-xl p-3 shadow-sm text-center">
-          <div className={`text-2xl font-bold ${totalAssigned >= totalNeeded ? 'text-green-600' : 'text-orange-600'}`}>
-            {totalNeeded - totalAssigned}
-          </div>
-          <div className="text-xs text-gray-500">Manquants</div>
-        </div>
-      </div>
-
-      {/* Bouton Sync Google Forms */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
-        <div className="flex justify-between items-start">
-          <div>
-            <div className="font-medium text-purple-800 text-sm mb-1">🔗 Synchroniser avec Google Forms</div>
-            <p className="text-xs text-purple-600">Importez les bénévoles depuis votre formulaire</p>
-          </div>
-          <button onClick={() => setShowSync(!showSync)} 
-            className="px-3 py-1.5 bg-purple-600 text-white rounded text-sm">
-            {showSync ? 'Fermer' : 'Configurer'}
-          </button>
-        </div>
-        
-        {syncStatus && (
-          <div className={`mt-2 p-2 rounded text-sm ${syncStatus.includes('✅') || syncStatus.includes('✓') ? 'bg-green-100 text-green-700' : syncStatus.includes('❌') ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-            {syncStatus}
-          </div>
-        )}
-        
-        {showSync && (
-          <div className="mt-4 space-y-4">
-            {/* Onglets de méthode */}
-            <div className="flex gap-2">
-              <button onClick={() => setSyncMode('manual')}
-                className={`flex-1 py-2 rounded text-sm ${syncMode === 'manual' ? 'bg-purple-600 text-white' : 'bg-white border'}`}>
-                📋 Import manuel
-              </button>
-              <button onClick={() => setSyncMode('jsonbin')}
-                className={`flex-1 py-2 rounded text-sm ${syncMode === 'jsonbin' ? 'bg-purple-600 text-white' : 'bg-white border'}`}>
-                🔄 Auto (JSONbin)
-              </button>
-            </div>
-
-            {/* Import manuel */}
-            {syncMode === 'manual' && (
-              <div className="space-y-3">
-                <div className="bg-white rounded p-3 text-xs">
-                  <div className="font-medium mb-2">📋 Comment importer :</div>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600">
-                    <li>Ouvrez les <a href="https://docs.google.com/forms/d/187cx0pEQARNMDnMdrQj59z285LbnhQW9LYnsIgHRTTw/edit#responses" target="_blank" rel="noopener noreferrer" className="text-purple-600 underline">réponses du formulaire</a></li>
-                    <li>Cliquez sur l'icône Google Sheets</li>
-                    <li>Sélectionnez et copiez les lignes de données</li>
-                    <li>Collez ci-dessous</li>
-                  </ol>
-                </div>
-                <textarea 
-                  value={importData}
-                  onChange={e => setImportData(e.target.value)}
-                  placeholder="Collez ici les données copiées depuis Google Sheets..."
-                  className="w-full h-24 px-3 py-2 border rounded text-sm font-mono"
-                />
-                <button onClick={importFromCSV} className="w-full py-2 bg-green-600 text-white rounded text-sm">
-                  Importer
-                </button>
-              </div>
-            )}
-
-            {/* Sync automatique JSONbin */}
-            {syncMode === 'jsonbin' && (
-              <div className="space-y-3">
-                <div className="bg-white rounded p-3 text-xs">
-                  <div className="font-medium mb-2">🤖 Synchronisation automatique :</div>
-                  <ol className="list-decimal list-inside space-y-1 text-gray-600">
-                    <li>Créez un compte sur <a href="https://jsonbin.io" target="_blank" rel="noopener noreferrer" className="text-purple-600 underline">jsonbin.io</a> (gratuit)</li>
-                    <li>Créez un nouveau Bin avec <code className="bg-gray-100 px-1">[]</code> comme contenu</li>
-                    <li>Copiez le Bin ID et l'API Key ci-dessous</li>
-                    <li>Installez le script Apps Script dans votre Google Form</li>
-                  </ol>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  <input 
-                    value={jsonbinConfig.binId}
-                    onChange={e => setJsonbinConfig(p => ({...p, binId: e.target.value}))}
-                    placeholder="Bin ID"
-                    className="px-3 py-2 border rounded text-sm"
-                  />
-                  <input 
-                    value={jsonbinConfig.apiKey}
-                    onChange={e => setJsonbinConfig(p => ({...p, apiKey: e.target.value}))}
-                    placeholder="API Key (X-Master-Key)"
-                    type="password"
-                    className="px-3 py-2 border rounded text-sm"
-                  />
-                </div>
-                
-                <button onClick={syncFromJSONbin} className="w-full py-2 bg-blue-600 text-white rounded text-sm flex items-center justify-center gap-2">
-                  🔄 Synchroniser maintenant
-                </button>
-                
-                <div className="bg-amber-50 border border-amber-200 rounded p-3">
-                  <div className="font-medium text-amber-800 text-xs mb-1">📜 Script Apps Script</div>
-                  <p className="text-xs text-amber-700 mb-2">
-                    Téléchargez et installez le script dans votre Google Form pour activer la synchronisation automatique.
-                  </p>
-                  <a href="#" onClick={(e) => {
-                    e.preventDefault();
-                    const script = `Voir le fichier AppsScript_Benevoles_Sync.js`;
-                    alert('Téléchargez le fichier AppsScript_Benevoles_Sync.js depuis les fichiers de l\'application');
-                  }} className="text-xs text-amber-800 underline">
-                    Voir les instructions complètes
-                  </a>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Onglets de vue */}
-      <div className="bg-white rounded-xl p-2 shadow-sm flex gap-2">
-        {[{id:'list', label:'Liste'}, {id:'byRole', label:'Par poste'}, {id:'byLocation', label:'Mer/Terre'}].map(v => (
-          <button key={v.id} onClick={() => setViewMode(v.id)}
-            className={`flex-1 px-3 py-1.5 rounded text-sm ${viewMode === v.id ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
-            {v.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Vue Liste */}
-      {viewMode === 'list' && (
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="flex justify-between items-center mb-3">
-            <span className="font-medium text-sm">Bénévoles ({volunteers.length})</span>
-            <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm">
-              <Plus size={14}/>Ajouter
-            </button>
-          </div>
-
-          {showAdd && (
-            <div className="bg-gray-50 rounded p-3 mb-3 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <input value={newV.name} onChange={e => setNewV(p=>({...p,name:e.target.value}))} placeholder="Nom *" className="px-2 py-1.5 border rounded text-sm"/>
-                <input value={newV.firstName} onChange={e => setNewV(p=>({...p,firstName:e.target.value}))} placeholder="Prénom" className="px-2 py-1.5 border rounded text-sm"/>
-                <input value={newV.email} onChange={e => setNewV(p=>({...p,email:e.target.value}))} placeholder="Email" className="px-2 py-1.5 border rounded text-sm"/>
-                <input value={newV.phone} onChange={e => setNewV(p=>({...p,phone:e.target.value}))} placeholder="Téléphone" className="px-2 py-1.5 border rounded text-sm"/>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select value={newV.role} onChange={e => setNewV(p=>({...p,role:e.target.value}))} className="px-2 py-1.5 border rounded text-sm">
-                  <option value="">Poste...</option>
-                  <optgroup label="🏖️ Terre">
-                    {VOLUNTEER_ROLES.filter(r => r.location === 'terre').map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </optgroup>
-                  <optgroup label="🌊 Mer">
-                    {VOLUNTEER_ROLES.filter(r => r.location === 'mer').map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </optgroup>
-                </select>
-                <select value={newV.panierRepas} onChange={e => setNewV(p=>({...p,panierRepas:e.target.value}))} className="px-2 py-1.5 border rounded text-sm">
-                  <option value="oui">Panier repas: Oui</option>
-                  <option value="veggie">Panier repas: Veggie</option>
-                  <option value="non">Panier repas: Non</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={newV.permisB} onChange={e => setNewV(p=>({...p,permisB:e.target.checked}))}/>
-                  Permis bateau
-                </label>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={()=>setShowAdd(false)} className="px-3 py-1 text-sm text-gray-600">Annuler</button>
-                <button onClick={add} className="px-3 py-1 bg-green-600 text-white rounded text-sm">OK</button>
-              </div>
-            </div>
-          )}
-
-          <div className="divide-y max-h-96 overflow-y-auto">
-            {!volunteers.length ? <p className="text-gray-500 text-center py-6 text-sm">Aucun bénévole</p> :
-              volunteers.map(v => {
-                const role = VOLUNTEER_ROLES.find(r => r.id === v.role);
-                return (
-                  <div key={v.id} className="py-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${role?.location === 'mer' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
-                        {(v.firstName || v.name)[0]}
-                      </div>
-                      <div>
-                        <div className="font-medium text-sm">{v.firstName} {v.name}</div>
-                        <div className="text-xs text-gray-500 flex items-center gap-2">
-                          {v.phone && <span><Phone size={10} className="inline"/> {v.phone}</span>}
-                          {v.permisB && <span className="text-blue-500">🚤</span>}
-                          {v.panierRepas === 'veggie' && <span>🥬</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select value={v.role||''} onChange={e => upd(v.id,'role',e.target.value)} className="px-2 py-1 border rounded text-xs max-w-32">
-                        <option value="">Non assigné</option>
-                        {VOLUNTEER_ROLES.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                      </select>
-                      <button onClick={()=>remove(v.id)} className="p-1 text-red-500 hover:bg-red-50 rounded"><Trash2 size={14}/></button>
-                    </div>
-                  </div>
-                );
-              })
-            }
-          </div>
-        </div>
-      )}
-
-      {/* Vue par poste */}
-      {viewMode === 'byRole' && (
-        <div className="space-y-3">
-          {byRole.map(r => (
-            <div key={r.id} className={`bg-white rounded-xl shadow-sm p-3 border-l-4 ${r.location === 'mer' ? 'border-blue-500' : 'border-green-500'}`}>
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <span className="font-medium text-sm">{r.name}</span>
-                  <span className="text-xs text-gray-500 ml-2">({r.timeSlot})</span>
-                </div>
-                <span className={`text-sm font-medium ${r.vols.length >= r.minPeople ? 'text-green-600' : 'text-orange-600'}`}>
-                  {r.vols.length}/{r.minPeople}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {r.vols.map(v => (
-                  <span key={v.id} className="bg-gray-100 px-2 py-0.5 rounded-full text-xs flex items-center gap-1">
-                    {v.firstName || v.name}
-                    {v.permisB && <span className="text-blue-500">🚤</span>}
-                  </span>
-                ))}
-                {r.vols.length < r.minPeople && Array(r.minPeople - r.vols.length).fill(0).map((_, i) => (
-                  <span key={`empty-${i}`} className="border-dashed border px-2 py-0.5 rounded-full text-xs text-gray-400">+1</span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Vue Mer/Terre */}
-      {viewMode === 'byLocation' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-blue-50 rounded-xl p-4">
-            <div className="font-medium text-blue-800 mb-3 flex items-center gap-2">
-              <Ship size={18}/>Équipe Mer ({merRoles.reduce((s,r) => s + r.vols.length, 0)})
-            </div>
-            <div className="space-y-2">
-              {merRoles.map(r => (
-                <div key={r.id} className="bg-white rounded p-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="font-medium">{r.name}</span>
-                    <span className={r.vols.length >= r.minPeople ? 'text-green-600' : 'text-orange-600'}>
-                      {r.vols.length}/{r.minPeople}
-                    </span>
-                  </div>
-                  {r.vols.length > 0 && (
-                    <div className="text-xs text-gray-600 mt-1">
-                      {r.vols.map(v => `${v.firstName || ''} ${v.name}`).join(', ')}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-green-50 rounded-xl p-4">
-            <div className="font-medium text-green-800 mb-3 flex items-center gap-2">
-              <MapPin size={18}/>Équipe Terre ({terreRoles.reduce((s,r) => s + r.vols.length, 0)})
-            </div>
-            <div className="space-y-2">
-              {terreRoles.map(r => (
-                <div key={r.id} className="bg-white rounded p-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="font-medium">{r.name}</span>
-                    <span className={r.vols.length >= r.minPeople ? 'text-green-600' : 'text-orange-600'}>
-                      {r.vols.length}/{r.minPeople}
-                    </span>
-                  </div>
-                  {r.vols.length > 0 && (
-                    <div className="text-xs text-gray-600 mt-1">
-                      {r.vols.map(v => `${v.firstName || ''} ${v.name}`).join(', ')}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Panel Documents (Numéros utiles, Émargement, Parcours)
-const DocumentsPanel = ({ regatta, volunteers }) => {
-  const [activeDoc, setActiveDoc] = useState('numeros');
-
-  // Générer les numéros utiles dynamiquement
-  const generateNumerosUtiles = () => {
-    const assignedVolunteers = volunteers.filter(v => v.role && v.phone);
-    const byRole = {};
-    assignedVolunteers.forEach(v => {
-      if (!byRole[v.role]) byRole[v.role] = [];
-      byRole[v.role].push(v);
-    });
-    return byRole;
+  return {
+    list: t => req(`${t}?select=*&order=created_at.desc`),
+    get: (t,q) => req(`${t}?${q}&select=*`),
+    ins: (t,d) => req(t,{method:"POST",body:JSON.stringify(d)}),
+    upsert: (t,d) => req(t,{method:"POST",body:JSON.stringify(d),headers:{Prefer:"resolution=merge-duplicates,return=representation"}}),
+    upd: (t,q,d) => req(`${t}?${q}`,{method:"PATCH",body:JSON.stringify(d)}),
+    del: (t,q) => req(`${t}?${q}`,{method:"DELETE"}),
   };
-
-  const numerosUtiles = generateNumerosUtiles();
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl p-2 shadow-sm flex gap-2 flex-wrap">
-        {[
-          {id:'numeros', label:'📞 Numéros utiles'},
-          {id:'emargement', label:'✍️ Émargement'},
-          {id:'parcours', label:'🗺️ Parcours'}
-        ].map(d => (
-          <button key={d.id} onClick={() => setActiveDoc(d.id)}
-            className={`px-3 py-1.5 rounded text-sm ${activeDoc === d.id ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
-            {d.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Numéros utiles */}
-      {activeDoc === 'numeros' && (
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold">Numéros utiles</h3>
-            <button onClick={() => window.print()} className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded text-sm">
-              <Printer size={14}/>Imprimer
-            </button>
-          </div>
-
-          {/* Urgences */}
-          <div className="mb-4">
-            <div className="text-sm font-medium text-red-600 mb-2">🚨 URGENCES</div>
-            <div className="grid grid-cols-2 gap-2">
-              {EMERGENCY_CONTACTS.map(c => (
-                <div key={c.name} className="bg-red-50 p-2 rounded text-sm">
-                  <div className="font-medium">{c.name}</div>
-                  <div className="text-xs text-gray-600">{c.role}</div>
-                  <div className="text-red-600 font-medium">{c.phone}</div>
-                  {c.vhf && <div className="text-xs">VHF: canal {c.vhf}</div>}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* VHF */}
-          <div className="mb-4 bg-blue-50 p-3 rounded">
-            <div className="text-sm font-medium mb-2">📻 Canaux VHF</div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>Rond 1 (PAV/Opti): <strong>Canal {regatta.vhfChannels?.rond1 || '69'}</strong></div>
-              <div>Rond 2 (Cata/Dér): <strong>Canal {regatta.vhfChannels?.rond2 || '72'}</strong></div>
-            </div>
-          </div>
-
-          {/* Bénévoles par rôle */}
-          <div>
-            <div className="text-sm font-medium mb-2">👥 Équipe</div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {Object.entries(numerosUtiles).map(([roleId, vols]) => {
-                const role = VOLUNTEER_ROLES.find(r => r.id === roleId);
-                return (
-                  <div key={roleId} className="border rounded p-2">
-                    <div className="text-xs font-medium text-gray-600 mb-1">{role?.name}</div>
-                    {vols.map(v => (
-                      <div key={v.id} className="flex justify-between text-sm">
-                        <span>{v.firstName} {v.name}</span>
-                        <span className="text-blue-600">{v.phone}</span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-              {Object.keys(numerosUtiles).length === 0 && (
-                <p className="text-gray-500 text-sm text-center py-4">Ajoutez des bénévoles avec numéro de téléphone</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Émargement */}
-      {activeDoc === 'emargement' && (
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold">Feuille d'émargement bénévoles</h3>
-            <button onClick={() => window.print()} className="flex items-center gap-1 px-3 py-1 bg-gray-100 rounded text-sm">
-              <Printer size={14}/>Imprimer
-            </button>
-          </div>
-          <div className="text-sm text-gray-600 mb-4">Régate du {formatDate(regatta.date)}</div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border p-2 text-left">Nom</th>
-                  <th className="border p-2 text-left">Prénom</th>
-                  <th className="border p-2 text-left">Poste</th>
-                  <th className="border p-2 text-left w-32">Signature</th>
-                </tr>
-              </thead>
-              <tbody>
-                {volunteers.map(v => {
-                  const role = VOLUNTEER_ROLES.find(r => r.id === v.role);
-                  return (
-                    <tr key={v.id}>
-                      <td className="border p-2">{v.name}</td>
-                      <td className="border p-2">{v.firstName}</td>
-                      <td className="border p-2 text-xs">{role?.name || '-'}</td>
-                      <td className="border p-2"></td>
-                    </tr>
-                  );
-                })}
-                {/* Lignes vides pour inscription sur place */}
-                {Array(Math.max(0, 10 - volunteers.length)).fill(0).map((_, i) => (
-                  <tr key={`empty-${i}`}>
-                    <td className="border p-2 h-8"></td>
-                    <td className="border p-2"></td>
-                    <td className="border p-2"></td>
-                    <td className="border p-2"></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Parcours */}
-      {activeDoc === 'parcours' && (
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <h3 className="font-semibold mb-4">Schémas des parcours</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Rond 1 */}
-            <div className="border rounded-xl p-4">
-              <div className="bg-blue-100 rounded p-2 mb-3">
-                <div className="font-medium">Rond 1 : PAV (T293 & RCB) et Optimist</div>
-                <div className="text-sm">📻 VHF Canal {regatta.vhfChannels?.rond1 || '69'}</div>
-              </div>
-              <div className="text-sm space-y-1 mb-3">
-                <p><span className="inline-block w-4 h-4 bg-yellow-400 rounded-full mr-2"></span>Bouée départ : cylindrique jaune</p>
-                <p><span className="inline-block w-4 h-4 bg-orange-500 rounded-full mr-2"></span>Bouée 1 : conique orange</p>
-                <p><span className="inline-block w-4 h-4 bg-white border rounded-full mr-2"></span>Bouées 2, 3, 4 : cylindrique blanche</p>
-                <p><span className="inline-block w-4 h-4 bg-yellow-300 rounded mr-2"></span>Bouée arrivée : frite jaune</p>
-              </div>
-              <div className="bg-gray-50 p-2 rounded text-sm">
-                <div><strong>EXT :</strong> Départ – 1 – 2 – 3 – 2 – 3 – Arrivée</div>
-                <div><strong>INT :</strong> Départ – 1 – 4 – 1 – 2 – 3 – Arrivée</div>
-                <div><strong>R :</strong> Départ – 1 – 2 – 3 – Arrivée</div>
-              </div>
-            </div>
-
-            {/* Rond 2 */}
-            <div className="border rounded-xl p-4">
-              <div className="bg-green-100 rounded p-2 mb-3">
-                <div className="font-medium">Rond 2 : INC, IND, OpenSkiff</div>
-                <div className="text-sm">📻 VHF Canal {regatta.vhfChannels?.rond2 || '72'}</div>
-              </div>
-              <div className="text-sm space-y-1 mb-3">
-                <p><span className="inline-block w-4 h-4 bg-yellow-400 rounded-full mr-2"></span>Bouée départ : cylindrique jaune</p>
-                <p><span className="inline-block w-4 h-4 bg-yellow-500 rounded-full mr-2"></span>Bouée 1 : cylindrique jaune BP</p>
-                <p><span className="inline-block w-4 h-4 bg-white border rounded-full mr-2"></span>Bouée 2 : cylindrique blanche BP</p>
-                <p><span className="inline-block w-4 h-4 bg-orange-400 rounded-full mr-2"></span>Bouée 3 : cylindrique orange BP</p>
-                <p><span className="inline-block w-4 h-4 bg-orange-500 rounded mr-2"></span>Bouée 4 : conique orange</p>
-              </div>
-              <div className="bg-gray-50 p-2 rounded text-sm">
-                <div><strong>EXT :</strong> Départ – 1 – 2 – 3 – 2 – 3 – Arrivée</div>
-                <div><strong>INT :</strong> Départ – 1 – 4 – 1 – 2 – 3 – Arrivée</div>
-                <div><strong>R :</strong> Départ – 1 – 2 – 3 – Arrivée</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 };
 
-// Panel Mails
-const MailsPanel = ({ regatta, volunteers }) => {
-  const [selectedTemplate, setSelectedTemplate] = useState('benevoles_invitation');
-  const [mailContent, setMailContent] = useState({ subject: '', body: '' });
+// ═══════════════════════════════════════════════
+// MAPPING LOCAL ↔ SUPABASE
+// ═══════════════════════════════════════════════
+const taskToRemote = (t,rid) => ({ id:String(t.id), regatta_id:rid, category:t.cat, title:t.title, description:t.desc||"", days_before_event:t.jb??30, required:!!t.req, done:!!t.done, assignee:t.assignee||"" });
+const taskFromRemote = r => ({ id:r.id, cat:r.category||"admin", title:r.title, desc:r.description||"", jb:r.days_before_event??30, req:!!r.required, done:!!r.done, assignee:r.assignee||"" });
+const volToRemote = (v,rid) => ({ id:String(v.id), regatta_id:rid, name:v.name, first_name:v.firstName||"", email:v.email||"", phone:v.phone||"", role:v.role||"", permis_bateau:!!v.permisB, panier_repas:v.panierRepas||"oui" });
+const volFromRemote = r => ({ id:r.id, name:r.name, firstName:r.first_name||"", email:r.email||"", phone:r.phone||"", role:r.role||"", permisB:!!r.permis_bateau, panierRepas:r.panier_repas||"oui" });
+const docToRemote = (d,rid) => ({ id:`${rid}_${d.id}`, regatta_id:rid, doc_type:d.id, name:d.name, status:d.status||"pending", deadline_days:d.deadline??60, required:!!d.req });
+const docFromRemote = r => ({ id:r.doc_type, name:r.name, status:r.status||"pending" });
+const regToRemote = r => ({ id:r.id, name:r.name, date:r.date||null, grade:r.grade, location:r.location||"", expected_participants:r.expected_participants||50, vhf1:r.vhf1||"69", vhf2:r.vhf2||"72", supports:r.supports||[], share_code:r.share_code, created_at:r.created_at });
+const regFromRemote = r => ({ id:r.id, name:r.name, date:r.date, grade:r.grade||"5B", location:r.location||"", expected_participants:r.expected_participants||50, vhf1:r.vhf1||"69", vhf2:r.vhf2||"72", supports: typeof r.supports==="string" ? (()=>{try{return JSON.parse(r.supports)}catch{return[]}})() : (r.supports||[]), share_code:r.share_code, created_at:r.created_at });
+const sortTasks = a => [...a].sort((x,y)=>(x.jb-y.jb)||String(x.id).localeCompare(String(y.id)));
 
-  useEffect(() => {
-    setMailContent(generateMailContent(selectedTemplate, regatta, volunteers));
-  }, [selectedTemplate, regatta, volunteers]);
+// ═══════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════
+const CSS = `@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&display=swap');
+*{box-sizing:border-box}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+button:active{transform:scale(0.97)}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+@media print{.no-print{display:none!important}.print-only{display:block!important}}
+.print-only{display:none}`;
+const ff = "'DM Sans',sans-serif";
+const ff2 = "'Playfair Display',serif";
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    alert('Copié !');
-  };
-
-  const templates = [
-    { id: 'benevoles_invitation', label: '📢 Appel bénévoles', icon: Users },
-    { id: 'benevoles_organisation', label: '📋 Organisation bénévoles', icon: ClipboardList },
-    { id: 'mairie', label: '🏛️ Déclaration mairie', icon: FileText },
-    { id: 'ddtm', label: '⚓ Déclaration DDTM', icon: Anchor },
-    { id: 'npi', label: '🚤 Demande matériel NPI', icon: Ship },
-    { id: 'debit_boissons', label: '🍺 Débit boissons', icon: FileText },
-    { id: 'fiche_securite', label: '🛡️ Fiche sécurité', icon: AlertCircle },
-    { id: 'presse', label: '📰 Article presse', icon: Mail }
-  ];
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="font-medium text-sm mb-3">Modèles de mails</div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {templates.map(t => {
-            const I = t.icon;
-            return (
-              <button key={t.id} onClick={() => setSelectedTemplate(t.id)}
-                className={`p-2 rounded-lg text-left text-sm flex items-center gap-2 ${selectedTemplate === t.id ? 'bg-blue-100 text-blue-700 border-2 border-blue-500' : 'bg-gray-50 hover:bg-gray-100'}`}>
-                <I size={16}/>{t.label}
-              </button>
-            );
-          })}
-        </div>
+// ═══════════════════════════════════════════════
+// MICRO-COMPONENTS
+// ═══════════════════════════════════════════════
+const Modal = ({open,onClose,title,children,wide}) => {
+  if(!open) return null;
+  return <div style={{position:"fixed",inset:0,zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,20,40,0.5)",backdropFilter:"blur(5px)",padding:16,animation:"fadeIn .2s"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{background:"#fff",borderRadius:16,maxWidth:wide?720:500,width:"100%",maxHeight:"90vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.18)",animation:"slideUp .25s"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:"1px solid #e5e7eb"}}>
+        <h2 style={{margin:0,fontSize:17,fontWeight:700,fontFamily:ff}}>{title}</h2>
+        <button onClick={onClose} style={{background:"#f1f5f9",border:"none",borderRadius:8,width:30,height:30,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:"#64748b"}}>✕</button>
       </div>
-
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="flex justify-between items-center mb-3">
-          <div className="font-medium text-sm">Contenu du mail</div>
-          <div className="flex gap-2">
-            <button onClick={() => copyToClipboard(mailContent.subject + '\n\n' + mailContent.body)} 
-              className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm">
-              <Copy size={14}/>Copier tout
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Objet</label>
-            <div className="flex gap-2">
-              <input value={mailContent.subject} onChange={e => setMailContent(p => ({...p, subject: e.target.value}))}
-                className="flex-1 px-3 py-2 border rounded text-sm"/>
-              <button onClick={() => copyToClipboard(mailContent.subject)} className="px-2 py-1 bg-gray-100 rounded">
-                <Copy size={14}/>
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Corps du message</label>
-            <div className="relative">
-              <textarea value={mailContent.body} onChange={e => setMailContent(p => ({...p, body: e.target.value}))}
-                className="w-full px-3 py-2 border rounded text-sm h-64 font-mono"/>
-              <button onClick={() => copyToClipboard(mailContent.body)} 
-                className="absolute top-2 right-2 px-2 py-1 bg-gray-100 rounded">
-                <Copy size={14}/>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm">
-        <div className="font-medium text-yellow-800 mb-2">💡 Conseil</div>
-        <p className="text-yellow-700">
-          Personnalisez le mail avant envoi. N'oubliez pas de joindre les documents nécessaires selon le type de mail (plan, attestation assurance, etc.).
-        </p>
-      </div>
+      <div style={{padding:20}}>{children}</div>
     </div>
-  );
+  </div>;
 };
 
-// Panel Avis de course avec Fiche Course RIR
-const AvisPanel = ({ regatta }) => {
-  const isRIR = regatta.grade === '5C' || regatta.grade === '5B';
-  
-  return (
-    <div className="space-y-4">
-      {/* Alerte RIR pour grades 5C/5B */}
-      {isRIR && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-          <div className="font-medium text-amber-800 text-sm mb-2">⚠️ Régates 5C et 5B : Règlement Intérieur de Régate (RIR)</div>
-          <p className="text-xs text-amber-700 mb-3">
-            Les régates de grade 5C et 5B appliquent les <strong>RIR</strong>. Utilisez une <strong>Fiche Course</strong> à la place des Instructions de Course (IC).
-          </p>
-          <a href="https://arbitrage.ffvoile.fr/regles-et-documents/ac-ic-annexes-types/" target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded text-xs w-fit">
-            <Download size={12}/>Modèle Fiche Course RIR
-          </a>
-        </div>
-      )}
-
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <div className="font-medium text-blue-800 text-sm mb-2">📋 Modèles officiels FFVoile 2025</div>
-        <p className="text-xs text-blue-700 mb-3">
-          {isRIR 
-            ? "Pour votre régate " + regatta.grade + ", utilisez l'AC simplifié + Fiche Course (pas d'IC)."
-            : "Pour régates 5A et supérieures, utilisez AC complet + IC types."
-          }
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <a href="https://arbitrage.ffvoile.fr/media/33pc1eic/2025_ac-type-voile-légère-simplifié-5c-5b-sept-25.docx" target="_blank" rel="noopener noreferrer"
-            className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs ${isRIR ? 'bg-blue-600 text-white' : 'bg-white border border-blue-600 text-blue-600'}`}>
-            <Download size={12}/>AC simplifié 5C/5B
-          </a>
-          <a href="https://arbitrage.ffvoile.fr/media/ywld0ayh/2025_ac-type-voile-legere-def-sept-25-forme-texte.docx" target="_blank" rel="noopener noreferrer"
-            className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs ${!isRIR ? 'bg-blue-600 text-white' : 'bg-white border border-blue-600 text-blue-600'}`}>
-            <Download size={12}/>AC complet
-          </a>
-          {!isRIR && (
-            <a href="https://arbitrage.ffvoile.fr/media/xiajwvrh/ic-types-vl-avec-champs-25-28-mars-25-def.docx" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1 px-3 py-1.5 bg-white border border-blue-600 text-blue-600 rounded text-xs">
-              <Download size={12}/>IC types
-            </a>
-          )}
-        </div>
-      </div>
-
-      {/* Structure Fiche Course pour RIR */}
-      {isRIR && (
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="font-medium text-sm mb-3">📄 Structure Fiche Course RIR</div>
-          <div className="text-sm space-y-2 text-gray-600">
-            <p><strong>1. Règles applicables</strong> — RIR, avis de course, fiche course</p>
-            <p><strong>2. Programme</strong> — Briefing obligatoire 11h, nombre de courses</p>
-            <p><strong>3. Parcours</strong> — Zone de course, description des marques, schéma</p>
-            <p><strong>4. Procédure de départ</strong> — Signaux, pavillons de série</p>
-            <p><strong>5. Rappels</strong> — Individuel (X), Général (1er substitut), Aperçu</p>
-            <p><strong>6. Pénalités RIR</strong> — Observateur, 1 tour, DSQ</p>
-            <p><strong>7. Émargement</strong> — Obligatoire au retour, sanction DNF</p>
-            <p><strong>8. Classement</strong> — Points, rejet, départage</p>
-          </div>
-        </div>
-      )}
-
-      {/* Structure AC classique */}
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="font-medium text-sm mb-3">Structure avis de course</div>
-        <div className="text-sm space-y-2 text-gray-600">
-          <p><strong>1. Organisateur</strong> — AMATH KAKIKOUKA</p>
-          <p><strong>2. Dates et lieu</strong> — {formatDate(regatta.date)} à {regatta.location || '[Lieu]'}</p>
-          <p><strong>3. Classes admises</strong> — {regatta.supports?.join(', ') || '[Supports]'}</p>
-          <p><strong>4. Grade</strong> — {regatta.grade} {isRIR && '(RIR applicable)'}</p>
-          <p><strong>5. Inscriptions</strong> — Formulaire en ligne, droits: 12€ (solo) / 24€ (double) / 30€ (double + loc. cata)</p>
-          <p><strong>6. Programme</strong> — Accueil 9h, briefing {isRIR ? '11h' : '10h45'}, 1er départ 12h</p>
-          <p><strong>7. Contact</strong> — Email/téléphone organisateur</p>
-          <p><strong>8. Assurance</strong> — RC obligatoire, licence compétition</p>
-        </div>
-      </div>
-
-      {/* Pavillons RIR */}
-      {isRIR && (
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="font-medium text-sm mb-3">🚩 Pavillons RIR</div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-gray-50 p-2 rounded"><strong>Série</strong> — Signal avertissement (pavillon classe)</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>P</strong> — Signal préparatoire</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>X</strong> — Rappel individuel (OCS)</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>1er substitut</strong> — Rappel général</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>AP</strong> — Départ retardé</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>N</strong> — Course annulée</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>Bleu</strong> — Ligne d'arrivée</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>C</strong> — Changement de parcours</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>Y</strong> — Brassière obligatoire</div>
-            <div className="bg-gray-50 p-2 rounded"><strong>Orange</strong> — En course</div>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="font-medium text-sm mb-3">✅ Checklist publication</div>
-        <div className="text-sm space-y-2">
-          {[
-            'Lien inscription en ligne intégré',
-            'Programme horaire détaillé',
-            'Tarifs (12€ solo / 24€ double / 30€ double+loc)',
-            'Contact organisateur',
-            isRIR ? 'Fiche course jointe (pas IC)' : 'Instructions de course jointes',
-            'Envoyé à VPB et clubs',
-            'Publié sur site web club',
-            'Transmis aux arbitres pour relecture'
-          ].map((item, i) => (
-            <div key={i} className="flex items-center gap-2 text-gray-600">
-              <div className="w-4 h-4 border rounded"></div>
-              {item}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+const Btn = ({children,onClick,v="primary",s="md",icon,disabled,style:sx}) => {
+  const vs = {primary:{background:"linear-gradient(135deg,#1e40af,#3b82f6)",color:"#fff",border:"none"},secondary:{background:"#f1f5f9",color:"#334155",border:"1px solid #e2e8f0"},danger:{background:"#fef2f2",color:"#dc2626",border:"1px solid #fecaca"},ghost:{background:"transparent",color:"#64748b",border:"none"},success:{background:"linear-gradient(135deg,#059669,#10b981)",color:"#fff",border:"none"}};
+  const ss = {sm:{padding:"5px 10px",fontSize:12},md:{padding:"8px 16px",fontSize:13},lg:{padding:"10px 20px",fontSize:14}};
+  return <button onClick={onClick} disabled={disabled} style={{...vs[v],...ss[s],borderRadius:9,fontWeight:600,fontFamily:ff,cursor:disabled?"not-allowed":"pointer",display:"inline-flex",alignItems:"center",gap:5,opacity:disabled?.5:1,transition:"all .15s",...sx}}>{icon&&<span style={{fontSize:s==="sm"?13:15}}>{icon}</span>}{children}</button>;
 };
 
-// Panel Paramètres
-const SettingsPanel = ({ regatta, setRegatta }) => (
-  <div className="space-y-4">
-    <div className="bg-white rounded-xl shadow-sm p-4">
-      <div className="font-medium text-sm mb-3">⚙️ Configuration régate</div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-gray-700 block mb-1">Nom de la régate</label>
-          <input value={regatta.name} onChange={e => setRegatta(p=>({...p,name:e.target.value}))} 
-            placeholder="Ex: Coupe du Finistère" className="w-full px-3 py-2 border rounded text-sm"/>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700 block mb-1">Date</label>
-          <input type="date" value={regatta.date} onChange={e => setRegatta(p=>({...p,date:e.target.value}))} 
-            className="w-full px-3 py-2 border rounded text-sm"/>
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-xs font-medium text-gray-700 block mb-1">Lieu</label>
-          <input value={regatta.location} onChange={e => setRegatta(p=>({...p,location:e.target.value}))} 
-            placeholder="Plage du Trez-Hir" className="w-full px-3 py-2 border rounded text-sm"/>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700 block mb-1">Grade</label>
-          <select value={regatta.grade} onChange={e => setRegatta(p=>({...p,grade:e.target.value}))} 
-            className="w-full px-3 py-2 border rounded text-sm">
-            {GRADES.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-700 block mb-1">Participants attendus</label>
-          <input type="number" value={regatta.expectedParticipants} 
-            onChange={e => setRegatta(p=>({...p,expectedParticipants:parseInt(e.target.value)||50}))} 
-            className="w-full px-3 py-2 border rounded text-sm"/>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <label className="text-xs font-medium text-gray-700 block mb-2">Canaux VHF</label>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-gray-500">Rond 1 (PAV/Opti)</label>
-            <input value={regatta.vhfChannels?.rond1 || '69'} 
-              onChange={e => setRegatta(p=>({...p,vhfChannels:{...p.vhfChannels, rond1:e.target.value}}))} 
-              className="w-full px-3 py-2 border rounded text-sm"/>
-          </div>
-          <div>
-            <label className="text-xs text-gray-500">Rond 2 (Cata/Dér)</label>
-            <input value={regatta.vhfChannels?.rond2 || '72'} 
-              onChange={e => setRegatta(p=>({...p,vhfChannels:{...p.vhfChannels, rond2:e.target.value}}))} 
-              className="w-full px-3 py-2 border rounded text-sm"/>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <label className="text-xs font-medium text-gray-700 block mb-2">Supports admis</label>
-        <div className="flex flex-wrap gap-1.5">
-          {SUPPORTS.map(s => (
-            <button key={s} onClick={() => setRegatta(p => ({...p, supports: p.supports.includes(s) ? p.supports.filter(x=>x!==s) : [...p.supports, s]}))}
-              className={`px-2 py-1 rounded-full text-xs ${regatta.supports.includes(s) ? 'bg-blue-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-white rounded-xl shadow-sm p-4">
-      <div className="font-medium text-sm mb-3">💾 Export / Import</div>
-      <div className="flex gap-2">
-        <button onClick={() => {
-          const data = JSON.stringify({ regatta }, null, 2);
-          navigator.clipboard.writeText(data);
-          alert('Données copiées dans le presse-papier !');
-        }} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded text-sm">
-          <Download size={16}/>Exporter JSON
-        </button>
-      </div>
-    </div>
+const Input = ({label,value,onChange,placeholder,type="text",textarea,req:required}) => (
+  <div style={{marginBottom:14}}>
+    {label&&<label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:4,fontFamily:ff}}>{label}{required&&<span style={{color:"#ef4444"}}> *</span>}</label>}
+    {textarea
+      ? <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={3} style={{width:"100%",padding:"8px 12px",border:"1.5px solid #d1d5db",borderRadius:9,fontSize:13,fontFamily:ff,resize:"vertical",outline:"none",boxSizing:"border-box"}}/>
+      : <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{width:"100%",padding:"8px 12px",border:"1.5px solid #d1d5db",borderRadius:9,fontSize:13,fontFamily:ff,outline:"none",boxSizing:"border-box"}}/>}
   </div>
 );
 
-// ==================== MAIN APP ====================
-export default function RegattaOrganizerV2() {
-  const [tab, setTab] = useState('dashboard');
-  const [regatta, setRegatta] = useState(INITIAL_REGATTA);
-  const [tasks] = useState(DEFAULT_TASKS);
-  const [completed, setCompleted] = useState([]);
-  const [volunteers, setVolunteers] = useState([]);
-  const [docs, setDocs] = useState(ADMIN_DOCS.map(d => ({...d, status:'pending'})));
+const Badge = ({label,color,small}) => <span style={{display:"inline-flex",alignItems:"center",padding:small?"2px 7px":"3px 9px",borderRadius:5,fontSize:small?10:11,fontWeight:600,background:color+"18",color,fontFamily:ff}}>{label}</span>;
 
-  // Persistence localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('regattaOrganizerV2');
-      if (saved) {
-        const d = JSON.parse(saved);
-        if (d.regatta) setRegatta(d.regatta);
-        if (d.completed) setCompleted(d.completed);
-        if (d.volunteers) setVolunteers(d.volunteers);
-        if (d.docs) setDocs(d.docs);
-      }
-    } catch (e) { console.error(e); }
-  }, []);
+const ProgressBar = ({val,total,color="#3b82f6"}) => {
+  const p = total>0?Math.round(val/total*100):0;
+  return <div style={{display:"flex",alignItems:"center",gap:8}}>
+    <div style={{flex:1,height:7,background:"#e2e8f0",borderRadius:4,overflow:"hidden"}}><div style={{width:`${p}%`,height:"100%",background:color,borderRadius:4,transition:"width .4s"}}/></div>
+    <span style={{fontSize:12,fontWeight:600,color:"#475569",fontFamily:ff,minWidth:38,textAlign:"right"}}>{val}/{total}</span>
+  </div>;
+};
 
-  useEffect(() => {
-    localStorage.setItem('regattaOrganizerV2', JSON.stringify({regatta, completed, volunteers, docs}));
-  }, [regatta, completed, volunteers, docs]);
+const ExtLink = ({href,children,style:sx}) => <a href={href} target="_blank" rel="noopener noreferrer" style={{color:"#3b82f6",textDecoration:"none",fontSize:13,fontFamily:ff,...sx}}>{children} ↗</a>;
 
-  const days = getDaysUntil(regatta.date);
+// ═══════════════════════════════════════════════
+// TAB COMPONENTS
+// ═══════════════════════════════════════════════
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 text-white px-4 py-4">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <Anchor size={24}/>
+// ── TAB: DASHBOARD ──
+const TabDashboard = ({reg,tasks,vols}) => {
+  const days = daysUntil(reg.date);
+  const done = tasks.filter(t=>t.done).length;
+  const total = tasks.length;
+  const pct = total?Math.round(done/total*100):0;
+  const totalNeed = VOL_ROLES.reduce((s,r)=>s+r.min,0);
+  const assigned = vols.filter(v=>v.role).length;
+  const urgent = tasks.filter(t=>{
+    if(t.done) return false;
+    const dl = calcDL(reg.date,t.jb);
+    const d = daysUntil(dl);
+    return d!==null && d<=7 && d>=0;
+  });
+  const overdue = tasks.filter(t=>{
+    if(t.done) return false;
+    const dl = calcDL(reg.date,t.jb);
+    const d = daysUntil(dl);
+    return d!==null && d<0;
+  });
+
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    {days!==null && <div style={{background:days<=7?"linear-gradient(135deg,#dc2626,#f97316)":"linear-gradient(135deg,#1e40af,#0891b2)",borderRadius:16,padding:24,textAlign:"center",color:"#fff"}}>
+      <div style={{fontSize:48,fontWeight:800,fontFamily:ff2}}>{days<0?"Terminée":`J-${days}`}</div>
+      <div style={{fontSize:14,opacity:.85}}>{fmtDate(reg.date)}</div>
+    </div>}
+
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+      {[
+        {label:"Avancement",val:`${pct}%`,sub:`${done}/${total} tâches`,color:"#3b82f6",icon:"📋"},
+        {label:"Bénévoles",val:`${assigned}/${totalNeed}`,sub:`🌊 ${vols.filter(v=>VOL_ROLES.find(r=>r.id===v.role)?.loc==="mer").length} | 🏖️ ${vols.filter(v=>VOL_ROLES.find(r=>r.id===v.role)?.loc==="terre").length}`,color:"#10b981",icon:"👥"},
+        {label:"Urgentes",val:urgent.length,sub:"à traiter",color:"#f59e0b",icon:"⚠️"},
+        {label:"En retard",val:overdue.length,sub:"échéance passée",color:"#ef4444",icon:"🔴"},
+      ].map((k,i)=><div key={i} style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)",borderLeft:`4px solid ${k.color}`}}>
+        <div style={{fontSize:11,color:"#6b7280",fontFamily:ff}}>{k.icon} {k.label}</div>
+        <div style={{fontSize:24,fontWeight:700,color:k.color,fontFamily:ff}}>{k.val}</div>
+        <div style={{fontSize:11,color:"#9ca3af",fontFamily:ff}}>{k.sub}</div>
+      </div>)}
+    </div>
+
+    <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:8,fontFamily:ff}}>Progression globale</div>
+      <ProgressBar val={done} total={total}/>
+    </div>
+
+    {(urgent.length>0||overdue.length>0) && <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:12,padding:14}}>
+      <div style={{fontSize:13,fontWeight:600,color:"#92400e",marginBottom:8,fontFamily:ff}}>⚠️ Tâches à traiter ({urgent.length+overdue.length})</div>
+      {[...overdue,...urgent].slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",fontSize:12,fontFamily:ff}}>
+        <span style={{color:"#78350f"}}>{t.title}</span>
+        <span style={{color:"#dc2626",fontWeight:600}}>J-{t.jb}</span>
+      </div>)}
+    </div>}
+
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
+      {[
+        {label:"Déclaration DDTM",url:LINKS.ddtm,icon:"📁"},
+        {label:"Carte SHOM",url:LINKS.shom,icon:"🗺️"},
+        {label:"Documents FFVoile",url:LINKS.fiche_rir,icon:"🏆"},
+        {label:"Pré-inscriptions",url:LINKS.form_inscriptions,icon:"✍️"},
+        {label:"Formulaire bénévoles",url:LINKS.form_benevoles,icon:"👥"},
+        {label:"SCORE FFVoile",url:LINKS.score,icon:"📊"},
+      ].map((l,i)=><a key={i} href={l.url} target="_blank" rel="noopener noreferrer" style={{background:"#fff",borderRadius:10,padding:10,boxShadow:"0 1px 3px rgba(0,0,0,.04)",display:"flex",alignItems:"center",gap:8,fontSize:12,fontFamily:ff,color:"#1e293b",textDecoration:"none"}}>
+        <span>{l.icon}</span><span style={{flex:1}}>{l.label}</span><span style={{color:"#94a3b8",fontSize:10}}>↗</span>
+      </a>)}
+    </div>
+  </div>;
+};
+
+// ── TAB: PLANNING (TASKS) ──
+const TabPlanning = ({reg,tasks,onToggle,onNewTask}) => {
+  const [filter,setFilter] = useState("all");
+  const [expandedCats,setExpandedCats] = useState(TASK_CATS.map(c=>c.id));
+
+  const toggle = onToggle;
+  const toggleCat = id => setExpandedCats(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+
+  const filtered = tasks.filter(t=>{
+    if(filter==="all") return true;
+    if(filter==="todo") return !t.done;
+    if(filter==="done") return t.done;
+    if(filter==="urgent"){
+      if(t.done) return false;
+      const dl=calcDL(reg.date,t.jb); const d=daysUntil(dl);
+      return d!==null&&d<=7;
+    }
+    return true;
+  }).sort((a,b)=>a.jb-b.jb);
+
+  const grouped = TASK_CATS.map(c=>({...c, items:filtered.filter(t=>t.cat===c.id)})).filter(g=>g.items.length>0);
+
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+      {[{id:"all",label:"Toutes"},{id:"todo",label:"À faire"},{id:"urgent",label:"Urgentes"},{id:"done",label:"Terminées"}].map(f=><button key={f.id} onClick={()=>setFilter(f.id)} style={{padding:"5px 12px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:ff,border:"none",cursor:"pointer",background:filter===f.id?"#1e40af":"#f1f5f9",color:filter===f.id?"#fff":"#475569"}}>{f.label}</button>)}
+      <div style={{flex:1}}/>
+      <Btn icon="➕" s="sm" onClick={onNewTask}>Tâche</Btn>
+    </div>
+
+    {grouped.map(g=>{
+      const exp = expandedCats.includes(g.id);
+      const done = g.items.filter(t=>t.done).length;
+      return <div key={g.id} style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,.04)",overflow:"hidden"}}>
+        <button onClick={()=>toggleCat(g.id)} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"10px 14px",border:"none",background:"transparent",cursor:"pointer",textAlign:"left"}}>
+          <span style={{fontSize:16}}>{g.icon}</span>
+          <span style={{flex:1,fontWeight:600,fontSize:13,color:g.color,fontFamily:ff}}>{g.name}</span>
+          <span style={{fontSize:11,color:"#6b7280",fontFamily:ff}}>{done}/{g.items.length}</span>
+          <span style={{fontSize:12,color:"#94a3b8"}}>{exp?"▼":"▶"}</span>
+        </button>
+        {exp && <div style={{borderTop:"1px solid #f1f5f9"}}>
+          {g.items.map(t=>{
+            const dl = calcDL(reg.date,t.jb);
+            const d = daysUntil(dl);
+            const isLate = d!==null&&d<0&&!t.done;
+            const isUrgent = d!==null&&d<=7&&d>=0&&!t.done;
+            return <div key={t.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"8px 14px",borderBottom:"1px solid #f8fafc",background:t.done?"#f0fdf4":"transparent"}}>
+              <button onClick={()=>toggle(t.id)} style={{width:20,height:20,borderRadius:5,flexShrink:0,marginTop:1,border:t.done?"none":"2px solid #cbd5e1",cursor:"pointer",background:t.done?"#22c55e":isLate?"#fef2f2":isUrgent?"#fffbeb":"#fff",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:11,fontWeight:700}}>{t.done?"✓":""}</button>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:t.done?"#16a34a":"#1e293b",textDecoration:t.done?"line-through":"none",fontFamily:ff}}>{t.title}{t.req&&!t.done&&<span style={{color:"#ef4444",marginLeft:4}}>*</span>}</div>
+                {t.desc&&<div style={{fontSize:11,color:"#64748b",fontFamily:ff,marginTop:2}}>{t.desc}</div>}
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontSize:11,fontWeight:600,color:isLate?"#dc2626":isUrgent?"#f59e0b":t.done?"#16a34a":"#6b7280",fontFamily:ff}}>{t.done?"✓":`J-${t.jb}`}</div>
+                <div style={{fontSize:10,color:"#9ca3af",fontFamily:ff}}>{fmtShort(dl)}</div>
+              </div>
+            </div>;
+          })}
+        </div>}
+      </div>;
+    })}
+  </div>;
+};
+
+// ── TAB: ADMIN ──
+const TabAdmin = ({reg,docs,setDocs,onStatus}) => {
+  const upd = (id,v) => { setDocs(p=>p.map(d=>d.id===id?{...d,status:v}:d)); if(onStatus) onStatus(id,v); };
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:12,padding:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#1e40af",marginBottom:6,fontFamily:ff}}>📋 Délais réglementaires</div>
+      <div style={{fontSize:12,color:"#1e40af",fontFamily:ff,lineHeight:1.8}}>
+        Maritime (AffMar) : 15 jours avant — Mairie : 2 mois — FFVoile : 1 mois (club) — Plans d'eau intérieurs : 2 mois (préfecture/VNF)
+      </div>
+    </div>
+
+    <div style={{background:"#fff",borderRadius:12,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{padding:"10px 14px",borderBottom:"1px solid #f1f5f9",fontWeight:600,fontSize:13,fontFamily:ff}}>Documents administratifs</div>
+      {docs.map(d=>{
+        const info = ADMIN_DOCS.find(a=>a.id===d.id);
+        return <div key={d.id} style={{padding:"10px 14px",borderBottom:"1px solid #f8fafc"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontWeight:600,fontSize:13,fontFamily:ff}}>{d.name}</span>
+              {info?.req&&<span style={{fontSize:10,background:"#fef2f2",color:"#dc2626",padding:"1px 6px",borderRadius:4,fontWeight:600}}>Oblig.</span>}
             </div>
-            <div>
-              <h1 className="text-lg font-bold">Régates Organizer</h1>
-              <p className="text-blue-200 text-xs">{regatta.name || 'Nouvelle régate'}{regatta.date && ` • ${formatDateShort(regatta.date)}`}</p>
-            </div>
+            <span style={{fontSize:11,color:d.status==="done"?"#16a34a":"#6b7280",fontWeight:600,fontFamily:ff}}>{d.status==="done"?"✓ Fait":`J-${info?.deadline||"?"}`}</span>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-blue-200">Jours</div>
-            <div className="text-2xl font-bold">{days !== null ? (days >= 0 ? `J-${days}` : `J+${-days}`) : '-'}</div>
+          {info?.pj?.length>0&&<div style={{fontSize:11,color:"#6b7280",marginBottom:6,fontFamily:ff}}>PJ : {info.pj.join(", ")}</div>}
+          <select value={d.status||"pending"} onChange={e=>upd(d.id,e.target.value)} style={{width:"100%",padding:"5px 8px",border:"1px solid #e2e8f0",borderRadius:6,fontSize:12,fontFamily:ff}}>
+            <option value="pending">À faire</option><option value="inProgress">En cours</option><option value="done">Terminé</option>
+          </select>
+        </div>;
+      })}
+    </div>
+
+    <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:12,padding:14}}>
+      <div style={{fontSize:13,fontWeight:600,color:"#92400e",marginBottom:4,fontFamily:ff}}>⚠️ Rappel DDTM</div>
+      <div style={{fontSize:12,color:"#78350f",fontFamily:ff,lineHeight:1.6}}>Le plan de la manifestation est obligatoire. À joindre : zone de course (carte SHOM), attestation d'assurance RC, liste des bateaux de sécurité.</div>
+    </div>
+
+    <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:8,fontFamily:ff}}>📞 Contacts administratifs</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        {[{n:"Mairie Animation",e:"animation@plougonvelin.fr"},{n:"Police municipale",e:"police@plougonvelin.fr"},{n:"Ouest France",e:"gery.baldenweck@orange.fr"},{n:"Le Télégramme",e:"cessoumich@gmail.com"}].map((c,i)=><div key={i} style={{background:"#f8fafc",borderRadius:8,padding:8}}>
+          <div style={{fontSize:12,fontWeight:600,fontFamily:ff}}>{c.n}</div>
+          <a href={`mailto:${c.e}`} style={{fontSize:11,color:"#3b82f6",fontFamily:ff,textDecoration:"none"}}>{c.e}</a>
+        </div>)}
+      </div>
+    </div>
+
+    <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:8,fontFamily:ff}}>🔗 Ressources</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        <ExtLink href={LINKS.ddtm}>📁 Formulaire DDTM</ExtLink>
+        <ExtLink href={LINKS.shom}>🗺️ Carte SHOM</ExtLink>
+      </div>
+    </div>
+  </div>;
+};
+
+// ── TAB: BÉNÉVOLES ──
+const TabVolunteers = ({vols,setVols,remote}) => {
+  const [showAdd,setShowAdd]=useState(false);
+  const [showSync,setShowSync]=useState(false);
+  const [viewMode,setViewMode]=useState("list");
+  const [importData,setImportData]=useState("");
+  const [syncMsg,setSyncMsg]=useState("");
+  const [nv,setNv]=useState({name:"",firstName:"",email:"",phone:"",role:"",permisB:false,panierRepas:"oui"});
+
+  const add = () => { if(nv.name){const v={...nv,id:uid()};setVols(p=>[...p,v]);if(remote)remote.add(v);setNv({name:"",firstName:"",email:"",phone:"",role:"",permisB:false,panierRepas:"oui"});setShowAdd(false);} };
+  const del = id => { setVols(p=>p.filter(v=>v.id!==id)); if(remote) remote.del(id); };
+  const upd = (id,f,v) => { setVols(p=>p.map(x=>x.id===id?{...x,[f]:v}:x)); if(remote) remote.upd(id,f,v); };
+  const importCSV = () => {
+    if(!importData.trim()) return;
+    const lines=importData.trim().split("\n"); const nw=[];
+    lines.forEach((l,i)=>{ if(i===0&&l.toLowerCase().includes("horodateur")) return; const c=l.split("\t"); if(c.length>=2) nw.push({id:uid(),name:c[1]||"",firstName:c[2]||"",email:c[3]||"",phone:c[4]||"",role:"",permisB:c[5]?.toLowerCase().includes("oui"),panierRepas:c[6]?.toLowerCase().includes("veggie")?"veggie":c[6]?.toLowerCase().includes("non")?"non":"oui"}); });
+    if(nw.length>0){setVols(p=>[...p,...nw]);if(remote)remote.addMany(nw);setImportData("");setSyncMsg(`✅ ${nw.length} bénévole(s) importé(s) !`);setTimeout(()=>setSyncMsg(""),3000);}
+  };
+
+  const totalNeed = VOL_ROLES.reduce((s,r)=>s+r.min,0);
+  const assigned = vols.filter(v=>v.role).length;
+  const byRole = VOL_ROLES.map(r=>({...r,v:vols.filter(v=>v.role===r.id)}));
+
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+      {[{l:"Inscrits",v:vols.length,c:"#3b82f6"},{l:"Assignés",v:assigned,c:"#10b981"},{l:"Manquants",v:Math.max(0,totalNeed-assigned),c:assigned>=totalNeed?"#10b981":"#f59e0b"}].map((k,i)=><div key={i} style={{background:"#fff",borderRadius:10,padding:10,textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+        <div style={{fontSize:22,fontWeight:700,color:k.c,fontFamily:ff}}>{k.v}</div>
+        <div style={{fontSize:11,color:"#6b7280",fontFamily:ff}}>{k.l}</div>
+      </div>)}
+    </div>
+
+    {/* Sync Google Forms */}
+    <div style={{background:"linear-gradient(135deg,#f5f3ff,#eff6ff)",border:"1px solid #c4b5fd",borderRadius:12,padding:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><div style={{fontSize:13,fontWeight:600,color:"#5b21b6",fontFamily:ff}}>🔗 Import depuis Google Forms</div><div style={{fontSize:11,color:"#7c3aed",fontFamily:ff}}>Collez les données depuis le tableur</div></div>
+        <Btn v="secondary" s="sm" onClick={()=>setShowSync(!showSync)}>{showSync?"Fermer":"Importer"}</Btn>
+      </div>
+      {syncMsg&&<div style={{marginTop:8,padding:6,borderRadius:6,fontSize:12,background:syncMsg.includes("✅")?"#dcfce7":"#fef2f2",color:syncMsg.includes("✅")?"#166534":"#991b1b",fontFamily:ff}}>{syncMsg}</div>}
+      {showSync&&<div style={{marginTop:12}}>
+        <div style={{fontSize:11,color:"#6b7280",fontFamily:ff,marginBottom:8,lineHeight:1.6}}>1. Ouvrez les <a href={`${LINKS.form_benevoles}#responses`} target="_blank" rel="noopener noreferrer" style={{color:"#7c3aed"}}>réponses du formulaire</a> → icône Google Sheets. 2. Sélectionnez et copiez les lignes. 3. Collez ci-dessous.</div>
+        <textarea value={importData} onChange={e=>setImportData(e.target.value)} placeholder="Collez les données ici…" style={{width:"100%",height:80,padding:8,border:"1px solid #d1d5db",borderRadius:8,fontSize:12,fontFamily:"monospace",boxSizing:"border-box"}}/>
+        <Btn v="success" s="sm" onClick={importCSV} style={{marginTop:8,width:"100%"}}>Importer</Btn>
+      </div>}
+    </div>
+
+    <div style={{display:"flex",gap:6}}>
+      <Btn icon="➕" s="sm" onClick={()=>setShowAdd(!showAdd)}>Ajouter</Btn>
+      {["list","byRole","byLoc"].map(m=><button key={m} onClick={()=>setViewMode(m)} style={{padding:"5px 10px",borderRadius:7,fontSize:11,fontWeight:600,fontFamily:ff,border:"none",cursor:"pointer",background:viewMode===m?"#1e40af":"#f1f5f9",color:viewMode===m?"#fff":"#475569"}}>{m==="list"?"Liste":m==="byRole"?"Par poste":"Mer/Terre"}</button>)}
+    </div>
+
+    {showAdd&&<div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        <input value={nv.name} onChange={e=>setNv({...nv,name:e.target.value})} placeholder="Nom *" style={{padding:"6px 10px",border:"1px solid #d1d5db",borderRadius:7,fontSize:12}}/>
+        <input value={nv.firstName} onChange={e=>setNv({...nv,firstName:e.target.value})} placeholder="Prénom" style={{padding:"6px 10px",border:"1px solid #d1d5db",borderRadius:7,fontSize:12}}/>
+        <input value={nv.email} onChange={e=>setNv({...nv,email:e.target.value})} placeholder="Email" style={{padding:"6px 10px",border:"1px solid #d1d5db",borderRadius:7,fontSize:12}}/>
+        <input value={nv.phone} onChange={e=>setNv({...nv,phone:e.target.value})} placeholder="Téléphone" style={{padding:"6px 10px",border:"1px solid #d1d5db",borderRadius:7,fontSize:12}}/>
+      </div>
+      <select value={nv.role} onChange={e=>setNv({...nv,role:e.target.value})} style={{width:"100%",padding:"6px 10px",border:"1px solid #d1d5db",borderRadius:7,fontSize:12,marginTop:6}}>
+        <option value="">— Poste —</option>
+        <optgroup label="🏖️ Terre">{VOL_ROLES.filter(r=>r.loc==="terre").map(r=><option key={r.id} value={r.id}>{r.name} ({r.slot})</option>)}</optgroup>
+        <optgroup label="🌊 Mer">{VOL_ROLES.filter(r=>r.loc==="mer").map(r=><option key={r.id} value={r.id}>{r.name} ({r.slot})</option>)}</optgroup>
+      </select>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginTop:6}}>
+        <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,fontFamily:ff}}><input type="checkbox" checked={nv.permisB} onChange={e=>setNv({...nv,permisB:e.target.checked})}/>Permis bateau</label>
+        <select value={nv.panierRepas} onChange={e=>setNv({...nv,panierRepas:e.target.value})} style={{padding:"3px 8px",border:"1px solid #d1d5db",borderRadius:5,fontSize:11}}>
+          <option value="oui">🍽️ Repas</option><option value="veggie">🥗 Végétarien</option><option value="non">❌ Pas de repas</option>
+        </select>
+      </div>
+      <div style={{display:"flex",gap:6,marginTop:8}}>
+        <Btn v="secondary" s="sm" onClick={()=>setShowAdd(false)}>Annuler</Btn>
+        <Btn v="success" s="sm" onClick={add}>Ajouter</Btn>
+      </div>
+    </div>}
+
+    {viewMode==="list"&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+      {vols.length===0?<div style={{background:"#fff",borderRadius:12,padding:32,textAlign:"center",color:"#94a3b8",fontSize:13,fontFamily:ff}}>Aucun bénévole inscrit</div>:
+      vols.map(v=>{
+        const role=VOL_ROLES.find(r=>r.id===v.role);
+        return <div key={v.id} style={{background:"#fff",borderRadius:10,padding:10,boxShadow:"0 1px 3px rgba(0,0,0,.04)",display:"flex",alignItems:"center",gap:10}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:600,fontFamily:ff}}>{v.firstName} {v.name}</div>
+            {v.phone&&<div style={{fontSize:11,color:"#6b7280",fontFamily:ff}}>{v.phone}</div>}
+            {role&&<span style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:role.loc==="mer"?"#dbeafe":"#dcfce7",color:role.loc==="mer"?"#1e40af":"#166534",fontWeight:600}}>{role.name}</span>}
           </div>
+          <div style={{display:"flex",alignItems:"center",gap:4}}>
+            {v.permisB&&<span title="Permis bateau">🚤</span>}
+            {v.panierRepas==="veggie"&&<span title="Végétarien">🥗</span>}
+            <select value={v.role||""} onChange={e=>upd(v.id,"role",e.target.value)} style={{padding:"3px 6px",border:"1px solid #e2e8f0",borderRadius:5,fontSize:10,maxWidth:120}}>
+              <option value="">Poste…</option>
+              {VOL_ROLES.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <button onClick={()=>del(v.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#ef4444",fontSize:14}}>🗑️</button>
+          </div>
+        </div>;
+      })}
+    </div>}
+
+    {viewMode==="byRole"&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {["terre","mer"].map(loc=><div key={loc}>
+        <div style={{fontSize:13,fontWeight:700,color:loc==="mer"?"#1e40af":"#166534",marginBottom:6,fontFamily:ff}}>{loc==="mer"?"🌊 Équipe mer":"🏖️ Équipe terre"}</div>
+        {byRole.filter(r=>r.loc===loc).map(r=><div key={r.id} style={{background:"#fff",borderRadius:10,padding:10,marginBottom:4,borderLeft:`4px solid ${loc==="mer"?"#3b82f6":"#22c55e"}`,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:600,fontFamily:ff}}><span>{r.name}</span><span style={{color:r.v.length>=r.min?"#16a34a":"#f59e0b"}}>{r.v.length}/{r.min}</span></div>
+          <div style={{fontSize:11,color:"#6b7280",fontFamily:ff}}>{r.slot}</div>
+          {r.v.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:3,marginTop:4}}>{r.v.map(v=><span key={v.id} style={{fontSize:10,background:"#f1f5f9",padding:"2px 6px",borderRadius:4}}>{v.firstName} {v.name} {v.permisB&&"🚤"}</span>)}</div>}
+        </div>)}
+      </div>)}
+    </div>}
+
+    {viewMode==="byLoc"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      {["mer","terre"].map(loc=><div key={loc} style={{background:loc==="mer"?"#eff6ff":"#f0fdf4",borderRadius:12,padding:12}}>
+        <div style={{fontSize:13,fontWeight:700,color:loc==="mer"?"#1e40af":"#166534",marginBottom:8,fontFamily:ff}}>{loc==="mer"?"🌊 Mer":"🏖️ Terre"} ({byRole.filter(r=>r.loc===loc).reduce((s,r)=>s+r.v.length,0)})</div>
+        {byRole.filter(r=>r.loc===loc).map(r=><div key={r.id} style={{background:"#fff",borderRadius:8,padding:6,marginBottom:4,fontSize:11,fontFamily:ff}}>
+          <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontWeight:600}}>{r.name}</span><span style={{color:r.v.length>=r.min?"#16a34a":"#f59e0b"}}>{r.v.length}/{r.min}</span></div>
+          {r.v.length>0&&<div style={{color:"#6b7280",marginTop:2}}>{r.v.map(v=>`${v.firstName||""} ${v.name}`).join(", ")}</div>}
+        </div>)}
+      </div>)}
+    </div>}
+  </div>;
+};
+
+// ── TAB: DOCUMENTS ──
+const TabDocs = ({reg,vols}) => {
+  const [sub,setSub]=useState("contacts");
+  const volsWithPhone = vols.filter(v=>v.phone&&v.role);
+  const byRolePhone = {};
+  volsWithPhone.forEach(v=>{ if(!byRolePhone[v.role]) byRolePhone[v.role]=[]; byRolePhone[v.role].push(v); });
+
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",gap:6,overflowX:"auto"}}>
+      {[{id:"contacts",l:"📞 N° utiles"},{id:"emargement",l:"✍️ Émargement"},{id:"parcours",l:"🗺️ Parcours"}].map(t=><button key={t.id} onClick={()=>setSub(t.id)} style={{padding:"5px 12px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:ff,border:"none",cursor:"pointer",background:sub===t.id?"#1e40af":"#f1f5f9",color:sub===t.id?"#fff":"#475569",whiteSpace:"nowrap"}}>{t.l}</button>)}
+    </div>
+
+    {sub==="contacts"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{background:"#fef2f2",borderRadius:12,padding:14}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#991b1b",marginBottom:8,fontFamily:ff}}>🚨 URGENCES</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+          {EMERGENCY.map(c=><a key={c.name} href={`tel:${c.phone.replace(/\s/g,"")}`} style={{background:"#fff",borderRadius:8,padding:8,textDecoration:"none",color:"inherit"}}>
+            <div style={{fontSize:12,fontWeight:600,fontFamily:ff}}>{c.name}</div>
+            <div style={{fontSize:10,color:"#6b7280",fontFamily:ff}}>{c.role}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#dc2626",fontFamily:ff}}>{c.phone}</div>
+            {c.vhf&&<div style={{fontSize:10,fontFamily:ff}}>VHF : canal {c.vhf}</div>}
+          </a>)}
         </div>
-      </header>
+      </div>
+      <div style={{background:"#eff6ff",borderRadius:12,padding:14}}>
+        <div style={{fontSize:13,fontWeight:600,color:"#1e40af",marginBottom:6,fontFamily:ff}}>📻 Canaux VHF</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          <div style={{background:"#fff",borderRadius:8,padding:10,textAlign:"center"}}><div style={{fontSize:28,fontWeight:800,color:"#1e40af",fontFamily:ff}}>{reg.vhf1||"69"}</div><div style={{fontSize:10,color:"#6b7280",fontFamily:ff}}>Rond 1 (PAV/Opti)</div></div>
+          <div style={{background:"#fff",borderRadius:8,padding:10,textAlign:"center"}}><div style={{fontSize:28,fontWeight:800,color:"#1e40af",fontFamily:ff}}>{reg.vhf2||"72"}</div><div style={{fontSize:10,color:"#6b7280",fontFamily:ff}}>Rond 2 (Cata/Dér)</div></div>
+        </div>
+      </div>
+      {Object.keys(byRolePhone).length>0&&<div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:8,fontFamily:ff}}>👥 Contacts bénévoles</div>
+        {Object.entries(byRolePhone).map(([rid,vs])=>{
+          const role=VOL_ROLES.find(r=>r.id===rid);
+          return <div key={rid} style={{border:"1px solid #f1f5f9",borderRadius:8,padding:6,marginBottom:4}}>
+            <div style={{fontSize:10,fontWeight:600,color:"#6b7280",fontFamily:ff,marginBottom:2}}>{role?.name}</div>
+            {vs.map(v=><div key={v.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,fontFamily:ff}}><span>{v.firstName} {v.name}</span><a href={`tel:${v.phone}`} style={{color:"#3b82f6"}}>{v.phone}</a></div>)}
+          </div>;
+        })}
+      </div>}
+    </div>}
 
-      {/* Navigation */}
-      <TabNav active={tab} setActive={setTab}/>
+    {sub==="emargement"&&<div className="print-target" style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div className="no-print" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:14,fontWeight:700,fontFamily:ff}}>Feuille d'émargement bénévoles</div>
+        <Btn v="secondary" s="sm" icon="🖨️" onClick={()=>window.print()}>Imprimer</Btn>
+      </div>
+      <div style={{fontSize:12,color:"#6b7280",marginBottom:8,fontFamily:ff}}>Régate du {fmtDate(reg.date)}</div>
+      <table style={{width:"100%",fontSize:12,borderCollapse:"collapse",fontFamily:ff}}>
+        <thead><tr style={{background:"#f1f5f9"}}><th style={{border:"1px solid #e2e8f0",padding:6,textAlign:"left"}}>Nom</th><th style={{border:"1px solid #e2e8f0",padding:6,textAlign:"left"}}>Prénom</th><th style={{border:"1px solid #e2e8f0",padding:6,textAlign:"left"}}>Poste</th><th style={{border:"1px solid #e2e8f0",padding:6,textAlign:"left",width:100}}>Signature</th></tr></thead>
+        <tbody>
+          {vols.map(v=>{const role=VOL_ROLES.find(r=>r.id===v.role); return <tr key={v.id}><td style={{border:"1px solid #e2e8f0",padding:6}}>{v.name}</td><td style={{border:"1px solid #e2e8f0",padding:6}}>{v.firstName}</td><td style={{border:"1px solid #e2e8f0",padding:6,fontSize:10}}>{role?.name||"-"}</td><td style={{border:"1px solid #e2e8f0",padding:6}}></td></tr>;})}
+          {Array(Math.max(0,10-vols.length)).fill(0).map((_,i)=><tr key={`e${i}`}><td style={{border:"1px solid #e2e8f0",padding:10}}></td><td style={{border:"1px solid #e2e8f0",padding:10}}></td><td style={{border:"1px solid #e2e8f0",padding:10}}></td><td style={{border:"1px solid #e2e8f0",padding:10}}></td></tr>)}
+        </tbody>
+      </table>
+    </div>}
 
-      {/* Content */}
-      <main className="p-4 max-w-4xl mx-auto">
-        {tab === 'dashboard' && <Dashboard regatta={regatta} tasks={tasks} completed={completed} volunteers={volunteers}/>}
-        {tab === 'tasks' && <TasksPanel regatta={regatta} tasks={tasks} completed={completed} setCompleted={setCompleted}/>}
-        {tab === 'admin' && <AdminPanel regatta={regatta} docs={docs} setDocs={setDocs}/>}
-        {tab === 'volunteers' && <VolunteersPanel volunteers={volunteers} setVolunteers={setVolunteers} regatta={regatta}/>}
-        {tab === 'documents' && <DocumentsPanel regatta={regatta} volunteers={volunteers}/>}
-        {tab === 'mails' && <MailsPanel regatta={regatta} volunteers={volunteers}/>}
-        {tab === 'avis' && <AvisPanel regatta={regatta}/>}
-        {tab === 'settings' && <SettingsPanel regatta={regatta} setRegatta={setRegatta}/>}
-      </main>
+    {sub==="parcours"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      {[{name:"Rond 1 : PAV (T293 & RCB) / Optimist",vhf:reg.vhf1||"69",color:"#ef4444",bouees:["Départ : bouée cylindrique jaune","Bouée 1 : conique orange","Bouées 2,3,4 : cylindriques blanches BP","Arrivée : frite jaune + bateau pavillon bleu"]},
+        {name:"Rond 2 : INC / IND / OpenSkiff",vhf:reg.vhf2||"72",color:"#22c55e",bouees:["Départ : bouée cylindrique jaune","Bouée 1 : cylindrique jaune BP","Bouée 2 : cylindrique blanche BP","Bouée 3 : cylindrique orange BP","Bouée 4 : conique orange","Arrivée : frite jaune + bateau pavillon bleu"]}
+      ].map((r,i)=><div key={i} style={{background:"#fff",borderRadius:12,padding:14,borderTop:`4px solid ${r.color}`,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+        <div style={{fontSize:13,fontWeight:700,fontFamily:ff,marginBottom:4}}>{r.name}</div>
+        <div style={{fontSize:11,color:"#3b82f6",fontWeight:600,marginBottom:8,fontFamily:ff}}>📻 VHF Canal {r.vhf}</div>
+        <div style={{fontSize:11,fontFamily:ff,lineHeight:1.8,marginBottom:8}}>{r.bouees.map((b,j)=><div key={j}>{b}</div>)}</div>
+        <div style={{background:"#f8fafc",borderRadius:6,padding:8,fontSize:11,fontFamily:ff,lineHeight:1.6}}>
+          <strong>EXT :</strong> Départ – 1 – 2 – 3 – 2 – 3 – Arrivée<br/>
+          <strong>INT :</strong> Départ – 1 – 4 – 1 – 2 – 3 – Arrivée<br/>
+          <strong>R :</strong> Départ – 1 – 2 – 3 – Arrivée
+        </div>
+      </div>)}
+    </div>}
+  </div>;
+};
 
-      {/* Footer */}
-      <footer className="text-center py-4 text-xs text-gray-500 border-t bg-white mt-8">
-        Basé sur le Guide FFVoile et documents AMATH • <a href="https://arbitrage.ffvoile.fr" className="text-blue-600">arbitrage.ffvoile.fr</a>
-      </footer>
+// ── TAB: MAILS ──
+const TabMails = ({reg}) => {
+  const [sel,setSel]=useState(MAIL_TEMPLATES[0].id);
+  const tpl = MAIL_TEMPLATES.find(t=>t.id===sel);
+  const content = tpl ? fillMail(tpl,reg) : {subject:"",body:""};
+  const [body,setBody]=useState(content.body);
+  const [subj,setSubj]=useState(content.subject);
+
+  useEffect(()=>{ const c=tpl?fillMail(tpl,reg):{subject:"",body:""}; setBody(c.body); setSubj(c.subject); },[sel,reg.name,reg.date]);
+
+  const copy = t => { navigator.clipboard?.writeText(t); };
+
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:8,fontFamily:ff}}>Modèles de mails</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6}}>
+        {MAIL_TEMPLATES.map(t=><button key={t.id} onClick={()=>setSel(t.id)} style={{padding:"6px 10px",borderRadius:8,fontSize:11,fontFamily:ff,border:sel===t.id?"2px solid #3b82f6":"1px solid #e2e8f0",background:sel===t.id?"#eff6ff":"#f8fafc",color:sel===t.id?"#1e40af":"#475569",cursor:"pointer",textAlign:"left",fontWeight:sel===t.id?700:500}}>{t.label}</button>)}
+      </div>
+    </div>
+
+    <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+        <div style={{fontSize:13,fontWeight:600,fontFamily:ff}}>Contenu du mail</div>
+        <Btn v="primary" s="sm" icon="📋" onClick={()=>copy(subj+"\n\n"+body)}>Copier tout</Btn>
+      </div>
+      <div style={{marginBottom:8}}>
+        <label style={{fontSize:11,fontWeight:600,color:"#6b7280",fontFamily:ff}}>Objet</label>
+        <div style={{display:"flex",gap:4}}><input value={subj} onChange={e=>setSubj(e.target.value)} style={{flex:1,padding:"6px 10px",border:"1px solid #e2e8f0",borderRadius:7,fontSize:12,fontFamily:ff}}/><button onClick={()=>copy(subj)} style={{padding:"4px 8px",background:"#f1f5f9",border:"none",borderRadius:5,cursor:"pointer",fontSize:12}}>📋</button></div>
+      </div>
+      <div>
+        <label style={{fontSize:11,fontWeight:600,color:"#6b7280",fontFamily:ff}}>Corps</label>
+        <div style={{position:"relative"}}><textarea value={body} onChange={e=>setBody(e.target.value)} style={{width:"100%",height:220,padding:10,border:"1px solid #e2e8f0",borderRadius:7,fontSize:12,fontFamily:"monospace",boxSizing:"border-box",resize:"vertical"}}/><button onClick={()=>copy(body)} style={{position:"absolute",top:8,right:8,padding:"3px 7px",background:"#f1f5f9",border:"none",borderRadius:5,cursor:"pointer",fontSize:12}}>📋</button></div>
+      </div>
+    </div>
+
+    <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:12,padding:12}}>
+      <div style={{fontSize:12,fontWeight:600,color:"#92400e",fontFamily:ff}}>💡 Personnalisez le mail avant envoi. N'oubliez pas de joindre les documents nécessaires.</div>
+    </div>
+  </div>;
+};
+
+// ── TAB: AVIS DE COURSE ──
+const TabAvis = ({reg}) => {
+  const isRIR = reg.grade==="5C"||reg.grade==="5B";
+  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    {isRIR&&<div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:12,padding:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#92400e",fontFamily:ff,marginBottom:4}}>⚠️ Régates 5C/5B : Règlement Intérieur de Régate (RIR)</div>
+      <div style={{fontSize:12,color:"#78350f",fontFamily:ff,marginBottom:8}}>Utilisez une Fiche Course à la place des Instructions de Course (IC).</div>
+      <ExtLink href={LINKS.fiche_rir}>📄 Modèle Fiche Course RIR</ExtLink>
+    </div>}
+
+    <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:12,padding:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#1e40af",fontFamily:ff,marginBottom:4}}>📋 Modèles officiels FFVoile 2025</div>
+      <div style={{fontSize:12,color:"#1e40af",fontFamily:ff,marginBottom:10}}>{isRIR?"Pour votre régate "+reg.grade+", utilisez l'AC simplifié + Fiche Course (pas d'IC).":"Pour 5A et supérieures : AC complet + IC types."}</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+        <ExtLink href={LINKS.ac_simple} style={{padding:"5px 10px",background:isRIR?"#1e40af":"#fff",color:isRIR?"#fff":"#1e40af",borderRadius:7,border:"1px solid #1e40af",fontSize:11,textDecoration:"none"}}>AC simplifié 5C/5B ↗</ExtLink>
+        <ExtLink href={LINKS.ac_complet} style={{padding:"5px 10px",background:!isRIR?"#1e40af":"#fff",color:!isRIR?"#fff":"#1e40af",borderRadius:7,border:"1px solid #1e40af",fontSize:11,textDecoration:"none"}}>AC complet ↗</ExtLink>
+        {!isRIR&&<ExtLink href={LINKS.ic_types} style={{padding:"5px 10px",background:"#fff",color:"#1e40af",borderRadius:7,border:"1px solid #1e40af",fontSize:11,textDecoration:"none"}}>IC types ↗</ExtLink>}
+      </div>
+    </div>
+
+    {isRIR&&<div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:700,fontFamily:ff,marginBottom:6}}>📄 Structure Fiche Course RIR</div>
+      <div style={{fontSize:12,color:"#475569",fontFamily:ff,lineHeight:1.8}}>
+        <strong>1. Règles applicables</strong> — RIR, avis de course, fiche course<br/>
+        <strong>2. Programme</strong> — Briefing obligatoire 11h, nombre de courses<br/>
+        <strong>3. Parcours</strong> — Zone de course, description des marques<br/>
+        <strong>4. Procédure de départ</strong> — Signaux, pavillons de série<br/>
+        <strong>5. Rappels</strong> — Individuel (X), Général (1er substitut)<br/>
+        <strong>6. Pénalités RIR</strong> — Observateur, 1 tour, DSQ<br/>
+        <strong>7. Émargement</strong> — Obligatoire au retour, sanction DNF<br/>
+        <strong>8. Classement</strong> — Points, rejet, départage
+      </div>
+    </div>}
+
+    <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:700,fontFamily:ff,marginBottom:6}}>Structure avis de course</div>
+      <div style={{fontSize:12,color:"#475569",fontFamily:ff,lineHeight:1.8}}>
+        <strong>1. Organisateur</strong> — AMATH KAKIKOUKA<br/>
+        <strong>2. Dates et lieu</strong> — {fmtDate(reg.date)} à {reg.location||"[Lieu]"}<br/>
+        <strong>3. Classes admises</strong> — {(reg.supports||[]).join(", ")||"[Supports]"}<br/>
+        <strong>4. Grade</strong> — {reg.grade} {isRIR&&"(RIR applicable)"}<br/>
+        <strong>5. Inscriptions</strong> — Formulaire en ligne, droits : 12 € (solo) / 24 € (double) / 30 € (double + loc. cata)<br/>
+        <strong>6. Programme</strong> — Accueil 9h, briefing {isRIR?"11h":"10h45"}, 1er départ 12h<br/>
+        <strong>7. Contact</strong> — Email/téléphone organisateur<br/>
+        <strong>8. Assurance</strong> — RC obligatoire, licence compétition
+      </div>
+    </div>
+
+    {isRIR&&<div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:700,fontFamily:ff,marginBottom:6}}>🚩 Pavillons RIR</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+        {[
+          ["Série","Signal avertissement (pavillon classe)"],["P","Signal préparatoire"],
+          ["X","Rappel individuel (OCS)"],["1er substitut","Rappel général"],
+          ["AP","Départ retardé"],["N","Course annulée"],
+          ["Bleu","Ligne d'arrivée"],["C","Changement de parcours"],
+          ["Y","Brassière obligatoire"],["Orange","En course"],
+        ].map(([k,v],i)=><div key={i} style={{background:"#f8fafc",borderRadius:6,padding:6,fontSize:11,fontFamily:ff}}><strong>{k}</strong> — {v}</div>)}
+      </div>
+    </div>}
+
+    <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+      <div style={{fontSize:13,fontWeight:700,fontFamily:ff,marginBottom:6}}>✅ Checklist publication</div>
+      {[
+        "Lien inscription en ligne intégré","Programme horaire détaillé",
+        "Tarifs (12 € solo / 24 € double / 30 € double + loc)",
+        "Contact organisateur",
+        isRIR?"Fiche course jointe (pas IC)":"Instructions de course jointes",
+        "Envoyé à VPB et clubs","Publié sur site web club","Transmis aux arbitres pour relecture",
+      ].map((item,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",fontSize:12,color:"#475569",fontFamily:ff}}>
+        <div style={{width:16,height:16,border:"1.5px solid #cbd5e1",borderRadius:4,flexShrink:0}}/>
+        {item}
+      </div>)}
+    </div>
+  </div>;
+};
+
+// ═══════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════
+export default function App() {
+  const [screen,setScreen]=useState("home");
+  const [regattas,setRegattas]=useState([]);
+  const [curId,setCurId]=useState(null);
+  const [tab,setTab]=useState("dashboard");
+  const [sbCfg,setSbCfg]=useState(()=>{ const saved=loadLS(SB_KEY); if(saved?.url&&saved?.key) return saved; return builtinReady()?{...BUILTIN_SB}:null; });
+  const [sb,setSb]=useState(null);
+  const [toast,setToast]=useState(null);
+
+  // Modals
+  const [showCreate,setShowCreate]=useState(false);
+  const [showJoin,setShowJoin]=useState(false);
+  const [showShare,setShowShare]=useState(false);
+  const [showSbCfg,setShowSbCfg]=useState(false);
+  const [showNewTask,setShowNewTask]=useState(false);
+  const [joinCode,setJoinCode]=useState("");
+  const [newReg,setNewReg]=useState({name:"",date:"",grade:"5B"});
+  const [newTask,setNewTask]=useState({cat:"admin",title:"",desc:"",jb:30,req:false});
+
+  const cur = regattas.find(r=>r.id===curId);
+
+  useEffect(()=>{if(sbCfg?.url&&sbCfg?.key) setSb(makeSB(sbCfg.url,sbCfg.key));},[sbCfg]);
+  useEffect(()=>{ const d=loadLS(LS_KEY); if(d?.regattas) setRegattas(d.regattas); const p=new URLSearchParams(window.location?.search||""); const c=p.get("join"); if(c){setJoinCode(c.toUpperCase());setShowJoin(true);} },[]);
+  useEffect(()=>{ saveLS(LS_KEY,{regattas}); },[regattas]);
+
+  const flash = (msg,type="ok") => { setToast({msg,type}); setTimeout(()=>setToast(null),3000); };
+
+  // CRUD régate — Supabase est la source de vérité quand il est connecté
+  const createReg = async () => {
+    if(!newReg.name.trim()){flash("Nom obligatoire","err");return;}
+    const rid = uid();
+    const r = {
+      id:rid, name:newReg.name.trim(), date:newReg.date||null, grade:newReg.grade,
+      location:"Plage du Trez-Hir — Centre Nautique de PLOUGONVELIN",
+      supports:[], expected_participants:50, vhf1:"69", vhf2:"72",
+      share_code:shareCode(), created_at:new Date().toISOString(),
+      tasks: DEFAULT_TASKS.map(t=>({...t,id:`${rid}_t${t.id}`,done:false})),
+      volunteers:[], adminDocs:ADMIN_DOCS.map(d=>({...d,status:"pending"})),
+    };
+    setRegattas(p=>[r,...p]); setCurId(r.id); setScreen("detail"); setTab("dashboard");
+    setShowCreate(false); setNewReg({name:"",date:"",grade:"5B"});
+    markDirty();
+    if(sb){
+      const ok = await sb.upsert("regattas", regToRemote(r));
+      await sb.upsert("tasks", r.tasks.map(t=>taskToRemote(t,r.id)));
+      await sb.upsert("admin_docs", r.adminDocs.map(d=>docToRemote(d,r.id)));
+      if(ok!==null) flash(`Régate « ${r.name} » créée et synchronisée !`);
+      else flash("Régate créée en local — échec de la synchro Supabase","err");
+    } else {
+      flash(`Régate « ${r.name} » créée (mode local) !`);
+    }
+  };
+
+  const joinReg = async () => {
+    const c=joinCode.trim().toUpperCase(); if(!c){flash("Code requis","err");return;}
+    const local=regattas.find(r=>r.share_code===c);
+    if(local){setCurId(local.id);setScreen("detail");setTab("dashboard");setShowJoin(false);setJoinCode("");flash(`Connecté à « ${local.name} »`);return;}
+    if(!sb){flash("Configurez d'abord Supabase (⚙️) pour rejoindre une régate partagée","err");return;}
+    const rows = await sb.get("regattas", `share_code=eq.${encodeURIComponent(c)}`);
+    if(!rows || rows.length===0){flash("Code introuvable dans la base partagée","err");return;}
+    const remote = rows[0];
+    const [tk,vl,dc] = await Promise.all([
+      sb.get("tasks", `regatta_id=eq.${remote.id}`),
+      sb.get("volunteers", `regatta_id=eq.${remote.id}`),
+      sb.get("admin_docs", `regatta_id=eq.${remote.id}`),
+    ]);
+    let tasks = sortTasks((tk||[]).map(taskFromRemote));
+    if(tasks.length===0){
+      // Régate créée avant la synchro : on initialise les tâches partagées
+      tasks = DEFAULT_TASKS.map(t=>({...t,id:`${remote.id}_t${t.id}`,done:false}));
+      await sb.upsert("tasks", tasks.map(t=>taskToRemote(t,remote.id)));
+    }
+    let adminDocs = (dc && dc.length) ? dc.map(docFromRemote) : ADMIN_DOCS.map(d=>({...d,status:"pending"}));
+    if(!dc || dc.length===0){
+      await sb.upsert("admin_docs", adminDocs.map(d=>docToRemote(d,remote.id)));
+    }
+    const r = { ...regFromRemote(remote), tasks, volunteers:(vl||[]).map(volFromRemote), adminDocs };
+    setRegattas(p=>[r,...p.filter(x=>x.id!==r.id)]);
+    setCurId(r.id); setScreen("detail"); setTab("dashboard");
+    setShowJoin(false); setJoinCode("");
+    flash(`Connecté à « ${r.name} » — synchronisation active !`);
+  };
+
+  const delReg = id => {
+    if(!window.confirm("Supprimer cette régate ? Elle sera aussi supprimée pour les autres utilisateurs.")) return;
+    setRegattas(p=>p.filter(r=>r.id!==id));
+    if(sb) sb.del("regattas", `id=eq.${id}`);
+    if(curId===id){setCurId(null);setScreen("home");}
+    flash("Régate supprimée");
+  };
+
+  // CRUD tasks — chaque modification locale est envoyée à Supabase
+  const setTasks = fn => setRegattas(p=>p.map(r=>r.id===curId?{...r,tasks:typeof fn==="function"?fn(r.tasks):fn}:r));
+  const setVols = fn => setRegattas(p=>p.map(r=>r.id===curId?{...r,volunteers:typeof fn==="function"?fn(r.volunteers):fn}:r));
+  const setDocs = fn => setRegattas(p=>p.map(r=>r.id===curId?{...r,adminDocs:typeof fn==="function"?fn(r.adminDocs):fn}:r));
+
+  // ── Couche de synchronisation ──
+  const dirty = useRef(0);
+  const markDirty = () => { dirty.current = Date.now(); };
+  const regTimer = useRef(null);
+
+  const updateReg = upd => {
+    markDirty();
+    setRegattas(p=>p.map(r=>r.id===curId?{...r,...upd}:r));
+    if(sb && curId && cur){
+      const m = {...cur, ...upd};
+      clearTimeout(regTimer.current);
+      regTimer.current = setTimeout(()=>{
+        sb.upd("regattas", `id=eq.${curId}`, { name:m.name, date:m.date||null, grade:m.grade, location:m.location, expected_participants:m.expected_participants, vhf1:m.vhf1, vhf2:m.vhf2, supports:m.supports||[] });
+      }, 800);
+    }
+  };
+
+  const toggleTask = id => {
+    markDirty();
+    const t = cur?.tasks?.find(x=>x.id===id);
+    setRegattas(p=>p.map(r=>r.id===curId?{...r,tasks:r.tasks.map(x=>x.id===id?{...x,done:!x.done}:x)}:r));
+    if(sb && t) sb.upd("tasks", `id=eq.${id}`, { done: !t.done });
+  };
+
+  const addTask = async () => {
+    if(!newTask.title.trim()){flash("Titre obligatoire","err");return;}
+    markDirty();
+    const t = {...newTask, id:uid(), done:false};
+    setTasks(p=>[...p,t]);
+    setShowNewTask(false); setNewTask({cat:"admin",title:"",desc:"",jb:30,req:false});
+    if(sb && curId) await sb.upsert("tasks", taskToRemote(t, curId));
+    flash("Tâche ajoutée");
+  };
+
+  const VOL_MAP = { name:"name", firstName:"first_name", email:"email", phone:"phone", role:"role", permisB:"permis_bateau", panierRepas:"panier_repas" };
+  const volRemote = {
+    add: v => { markDirty(); if(sb && curId) sb.upsert("volunteers", volToRemote(v, curId)); },
+    addMany: list => { markDirty(); if(sb && curId && list.length) sb.upsert("volunteers", list.map(v=>volToRemote(v, curId))); },
+    del: id => { markDirty(); if(sb) sb.del("volunteers", `id=eq.${id}`); },
+    upd: (id,f,val) => { markDirty(); if(sb && VOL_MAP[f]) sb.upd("volunteers", `id=eq.${id}`, { [VOL_MAP[f]]: val }); },
+  };
+
+  const docStatusRemote = (docId, status) => {
+    markDirty();
+    if(!sb || !curId) return;
+    const base = (cur?.adminDocs||[]).find(x=>x.id===docId) || ADMIN_DOCS.find(x=>x.id===docId);
+    if(base) sb.upsert("admin_docs", docToRemote({...base, status}, curId));
+  };
+
+  // ── Rafraîchissement depuis Supabase (toutes les 8 s) ──
+  const pullRemote = useCallback(async ()=>{
+    if(!sb || !curId) return;
+    try{
+      const rows = await sb.get("regattas", `id=eq.${curId}`);
+      if(!rows || !rows.length) return;
+      const [tk, vl, dc] = await Promise.all([
+        sb.get("tasks", `regatta_id=eq.${curId}`),
+        sb.get("volunteers", `regatta_id=eq.${curId}`),
+        sb.get("admin_docs", `regatta_id=eq.${curId}`),
+      ]);
+      if(Date.now() - dirty.current < 4000) return; // ne pas écraser une modification en cours
+      setRegattas(p=>p.map(r=>{
+        if(r.id !== curId) return r;
+        const remoteTasks = sortTasks((tk||[]).map(taskFromRemote));
+        if(remoteTasks.length===0 && (r.tasks||[]).length>0){
+          // Régate antérieure à la synchro : on pousse les tâches locales vers Supabase
+          sb.upsert("tasks", r.tasks.map(t=>taskToRemote(t, r.id)));
+          return { ...r, ...regFromRemote(rows[0]), tasks:r.tasks };
+        }
+        return {
+          ...r,
+          ...regFromRemote(rows[0]),
+          tasks: remoteTasks.length ? remoteTasks : (r.tasks||[]),
+          volunteers: (vl||[]).map(volFromRemote),
+          adminDocs: (dc && dc.length) ? dc.map(docFromRemote) : (r.adminDocs||[]),
+        };
+      }));
+    }catch(e){ console.warn("pull:", e); }
+  }, [sb, curId]);
+
+  useEffect(()=>{
+    if(screen!=="detail" || !sb || !curId) return;
+    const iv = setInterval(()=>{
+      if(tab==="settings") return;              // pas de refresh pendant l'édition des réglages
+      if(Date.now() - dirty.current < 5000) return;
+      pullRemote();
+    }, 8000);
+    return ()=>clearInterval(iv);
+  }, [screen, sb, curId, tab, pullRemote]);
+
+  // ─── TABS CONFIG ───
+  const TABS = [
+    {id:"dashboard",label:"Accueil",icon:"🏠"},
+    {id:"tasks",label:"Planning",icon:"📋"},
+    {id:"admin",label:"Admin",icon:"📁"},
+    {id:"volunteers",label:"Bénévoles",icon:"👥"},
+    {id:"docs",label:"Documents",icon:"📄"},
+    {id:"mails",label:"Mails",icon:"✉️"},
+    {id:"avis",label:"Avis course",icon:"🏆"},
+    {id:"settings",label:"Config",icon:"⚙️"},
+  ];
+
+  // ─── RENDER: HOME ───
+  const renderHome = () => (
+    <div style={{maxWidth:700,margin:"0 auto",padding:16}}>
+      <div style={{background:"linear-gradient(135deg,#0c1e3a,#1e40af,#0369a1)",borderRadius:18,padding:28,marginBottom:20,position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",top:-20,right:-10,fontSize:100,opacity:.08,transform:"rotate(-15deg)"}}>⛵</div>
+        <h1 style={{fontFamily:ff2,fontSize:28,fontWeight:800,color:"#fff",margin:"0 0 6px"}}>Régates Organizer</h1>
+        <div style={{color:"#93c5fd",fontSize:14,fontFamily:ff}}>AMATH KAKIKOUKA</div>
+        <div style={{color:"#60a5fa80",fontSize:11,fontFamily:ff}}>v{VER} {sb?"• 🟢 Sync":"• Mode local"}</div>
+      </div>
+
+      <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+        <Btn icon="➕" s="lg" onClick={()=>setShowCreate(true)}>Nouvelle régate</Btn>
+        <Btn icon="🔗" v="secondary" s="lg" onClick={()=>setShowJoin(true)}>Rejoindre</Btn>
+        <Btn icon="⚙️" v="ghost" s="lg" onClick={()=>setShowSbCfg(true)}>Supabase</Btn>
+      </div>
+
+      {regattas.length===0?<div style={{textAlign:"center",padding:50,background:"#f8fafc",borderRadius:14,border:"2px dashed #cbd5e1"}}>
+        <div style={{fontSize:44,marginBottom:12}}>⛵</div>
+        <div style={{fontSize:15,color:"#475569",fontWeight:600,fontFamily:ff}}>Aucune régate</div>
+        <div style={{fontSize:13,color:"#94a3b8",fontFamily:ff}}>Créez votre première régate ou rejoignez-en une.</div>
+      </div>:
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {regattas.map(r=>{
+          const d=daysUntil(r.date); const tasks=r.tasks||[]; const done=tasks.filter(t=>t.done).length;
+          return <div key={r.id} style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:12,padding:16,cursor:"pointer",transition:"all .2s",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}} onClick={()=>{setCurId(r.id);setScreen("detail");setTab("dashboard");}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:700,fontFamily:ff,color:"#0f172a"}}>⛵ {r.name}</div>
+                <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:4}}>
+                  {r.date&&<Badge label={`📅 ${fmtShort(r.date)}`} color="#6366f1" small/>}
+                  <Badge label={r.grade} color="#d97706" small/>
+                  {r.share_code&&<Badge label={`🔗 ${r.share_code}`} color="#8b5cf6" small/>}
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                {d!==null&&<div style={{fontSize:20,fontWeight:800,color:d<=7?"#dc2626":"#3b82f6",fontFamily:ff}}>{d<0?"Passée":`J-${d}`}</div>}
+                <button onClick={e=>{e.stopPropagation();delReg(r.id);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#94a3b8"}}>🗑️</button>
+              </div>
+            </div>
+            <ProgressBar val={done} total={tasks.length}/>
+          </div>;
+        })}
+      </div>}
     </div>
   );
+
+  // ─── RENDER: DETAIL ───
+  const renderDetail = () => {
+    if(!cur) return null;
+    return <div style={{maxWidth:800,margin:"0 auto",padding:16,paddingBottom:80}}>
+      {/* Header */}
+      <div className="no-print" style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+        <Btn icon="←" v="ghost" s="sm" onClick={()=>{setScreen("home");setTab("dashboard");}}>Retour</Btn>
+        <div style={{flex:1}}/>
+        {sb&&<Btn icon="🔄" v="ghost" s="sm" onClick={async()=>{dirty.current=0;await pullRemote();flash("Synchronisé !");}}>Actualiser</Btn>}
+        <Btn icon="📤" v="secondary" s="sm" onClick={()=>setShowShare(true)}>Partager</Btn>
+      </div>
+
+      {/* Tab bar */}
+      <div className="no-print" style={{display:"flex",gap:3,overflowX:"auto",marginBottom:14,padding:"2px 0"}}>
+        {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",alignItems:"center",gap:4,padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:600,fontFamily:ff,border:"none",cursor:"pointer",whiteSpace:"nowrap",background:tab===t.id?"#1e40af":"#f1f5f9",color:tab===t.id?"#fff":"#475569"}}>{t.icon} {t.label}</button>)}
+      </div>
+
+      {/* Tab content */}
+      {tab==="dashboard"&&<TabDashboard reg={cur} tasks={cur.tasks||[]} vols={cur.volunteers||[]}/>}
+      {tab==="tasks"&&<TabPlanning reg={cur} tasks={cur.tasks||[]} onToggle={toggleTask} onNewTask={()=>setShowNewTask(true)}/>}
+      {tab==="admin"&&<TabAdmin reg={cur} docs={cur.adminDocs||[]} setDocs={setDocs} onStatus={docStatusRemote}/>}
+      {tab==="volunteers"&&<TabVolunteers vols={cur.volunteers||[]} setVols={setVols} remote={volRemote}/>}
+      {tab==="docs"&&<TabDocs reg={cur} vols={cur.volunteers||[]}/>}
+      {tab==="mails"&&<TabMails reg={cur}/>}
+      {tab==="avis"&&<TabAvis reg={cur}/>}
+      {tab==="settings"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{background:"#fff",borderRadius:12,padding:14,boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+          <div style={{fontSize:13,fontWeight:700,fontFamily:ff,marginBottom:10}}>⚙️ Configuration régate</div>
+          <Input label="Nom" value={cur.name} onChange={v=>updateReg({name:v})}/>
+          <Input label="Date" type="date" value={cur.date||""} onChange={v=>updateReg({date:v})}/>
+          <Input label="Lieu" value={cur.location||""} onChange={v=>updateReg({location:v})}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:"#374151",fontFamily:ff}}>Grade</label>
+              <select value={cur.grade} onChange={e=>updateReg({grade:e.target.value})} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #d1d5db",borderRadius:9,fontSize:13,fontFamily:ff}}>{GRADES.map(g=><option key={g.value} value={g.value}>{g.label}</option>)}</select>
+            </div>
+            <Input label="Participants" type="number" value={cur.expected_participants||50} onChange={v=>updateReg({expected_participants:parseInt(v)||50})}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <Input label="VHF Rond 1" value={cur.vhf1||"69"} onChange={v=>updateReg({vhf1:v})}/>
+            <Input label="VHF Rond 2" value={cur.vhf2||"72"} onChange={v=>updateReg({vhf2:v})}/>
+          </div>
+          <div style={{marginTop:8}}>
+            <label style={{fontSize:12,fontWeight:600,color:"#374151",fontFamily:ff,display:"block",marginBottom:6}}>Supports admis</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {SUPPORTS.map(s=><button key={s} onClick={()=>updateReg({supports:(cur.supports||[]).includes(s)?(cur.supports||[]).filter(x=>x!==s):[...(cur.supports||[]),s]})} style={{padding:"4px 10px",borderRadius:20,fontSize:11,fontFamily:ff,border:"none",cursor:"pointer",background:(cur.supports||[]).includes(s)?"#1e40af":"#f1f5f9",color:(cur.supports||[]).includes(s)?"#fff":"#475569",fontWeight:600}}>{s}</button>)}
+            </div>
+          </div>
+        </div>
+        {cur.share_code&&<div style={{background:"#f5f3ff",borderRadius:12,padding:14}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#5b21b6",fontFamily:ff,marginBottom:4}}>🔗 Code de partage</div>
+          <div style={{fontSize:24,fontWeight:800,letterSpacing:4,color:"#1e40af",fontFamily:ff}}>{cur.share_code}</div>
+        </div>}
+      </div>}
+    </div>;
+  };
+
+  // ─── RENDER ───
+  return <div style={{minHeight:"100vh",background:"linear-gradient(180deg,#f0f4ff,#fafbff,#f8fafc)",fontFamily:ff}}>
+    <style>{CSS}</style>
+
+    {/* Toast */}
+    {toast&&<div style={{position:"fixed",top:16,right:16,zIndex:9999,background:toast.type==="err"?"#fef2f2":"#f0fdf4",color:toast.type==="err"?"#dc2626":"#16a34a",border:`1.5px solid ${toast.type==="err"?"#fecaca":"#bbf7d0"}`,borderRadius:10,padding:"10px 18px",fontSize:13,fontWeight:600,boxShadow:"0 6px 20px rgba(0,0,0,.08)",fontFamily:ff,animation:"slideUp .3s",maxWidth:360}}>{toast.type==="err"?"⚠️":"✅"} {toast.msg}</div>}
+
+    {screen==="home"&&renderHome()}
+    {screen==="detail"&&renderDetail()}
+
+    {/* Create Modal */}
+    <Modal open={showCreate} onClose={()=>setShowCreate(false)} title="Nouvelle régate">
+      <Input label="Nom" value={newReg.name} onChange={v=>setNewReg({...newReg,name:v})} placeholder="Ex. : Coupe du Finistère" req/>
+      <Input label="Date" type="date" value={newReg.date} onChange={v=>setNewReg({...newReg,date:v})}/>
+      <div><label style={{fontSize:12,fontWeight:600,color:"#374151",fontFamily:ff}}>Grade</label><select value={newReg.grade} onChange={e=>setNewReg({...newReg,grade:e.target.value})} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #d1d5db",borderRadius:9,fontSize:13,fontFamily:ff,marginTop:4,marginBottom:14}}>{GRADES.map(g=><option key={g.value} value={g.value}>{g.label}</option>)}</select></div>
+      <div style={{fontSize:11,color:"#64748b",marginBottom:14,fontFamily:ff}}>💡 La régate sera préremplie avec {DEFAULT_TASKS.length} tâches types et {ADMIN_DOCS.length} documents administratifs.</div>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="secondary" onClick={()=>setShowCreate(false)}>Annuler</Btn><Btn onClick={createReg} icon="⛵">Créer</Btn></div>
+    </Modal>
+
+    {/* Join Modal */}
+    <Modal open={showJoin} onClose={()=>setShowJoin(false)} title="Rejoindre une régate">
+      <div style={{fontSize:13,color:"#475569",marginBottom:14,fontFamily:ff}}>Entrez le code de partage fourni par l'organisateur.</div>
+      <Input label="Code" value={joinCode} onChange={v=>setJoinCode(v.toUpperCase())} placeholder="ABC123" req/>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="secondary" onClick={()=>{setShowJoin(false);setJoinCode("");}}>Annuler</Btn><Btn onClick={joinReg} icon="🔗">Rejoindre</Btn></div>
+    </Modal>
+
+    {/* Share Modal */}
+    <Modal open={showShare} onClose={()=>setShowShare(false)} title="Partager cette régate">
+      {cur&&<div>
+        <div style={{textAlign:"center",padding:16,background:"#f0f4ff",borderRadius:12,marginBottom:16}}>
+          <div style={{fontSize:12,color:"#64748b",fontFamily:ff}}>Code de partage</div>
+          <div style={{fontSize:32,fontWeight:800,color:"#1e40af",letterSpacing:5,fontFamily:ff}}>{cur.share_code}</div>
+        </div>
+        <div style={{textAlign:"center",marginBottom:16}}>
+          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`${window.location?.origin||"https://regatta-organizer-v4-su9k.vercel.app"}?join=${cur.share_code}`)}`} alt="QR" style={{borderRadius:10,border:"2px solid #e2e8f0"}} width="160" height="160"/>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="success" icon="📱" style={{flex:1}} onClick={()=>{const url=`${window.location?.origin}?join=${cur.share_code}`; window.open(`https://wa.me/?text=${encodeURIComponent(`Rejoins la régate « ${cur.name} » !\nCode : ${cur.share_code}\nLien : ${url}`)}`,"_blank");}}>WhatsApp</Btn>
+          <Btn v="secondary" icon="📋" onClick={()=>{navigator.clipboard?.writeText(`Code : ${cur.share_code}`);flash("Copié !");}}>Copier</Btn>
+        </div>
+      </div>}
+    </Modal>
+
+    {/* Supabase Config Modal */}
+    <Modal open={showSbCfg} onClose={()=>setShowSbCfg(false)} title="Configuration Supabase (avancé)">
+      {builtinReady()&&<div style={{fontSize:12,color:"#166534",background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:9,padding:"8px 10px",marginBottom:14,fontFamily:ff}}>✅ La synchronisation est déjà préconfigurée dans l'application : aucun réglage n'est nécessaire. Ne modifiez ces champs que si vous souhaitez utiliser une autre base Supabase.</div>}
+      <div style={{fontSize:12,color:"#64748b",marginBottom:14,fontFamily:ff}}>Connectez Supabase pour la synchronisation multi-appareils. Sans Supabase, les données restent locales.</div>
+      <Input label="URL du projet" value={sbCfg?.url||""} onChange={v=>setSbCfg({...sbCfg,url:v})} placeholder="https://xxxxx.supabase.co"/>
+      <Input label="Clé API — onglet « Legacy anon » (commence par eyJ…)" value={sbCfg?.key||""} onChange={v=>setSbCfg({...sbCfg,key:v})} placeholder="eyJhbGciOi…"/>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <Btn onClick={()=>{saveLS(SB_KEY,sbCfg);setSb(makeSB(sbCfg?.url,sbCfg?.key));setShowSbCfg(false);flash("Configuration enregistrée")}} icon="💾">Enregistrer</Btn>
+        {builtinReady()&&<Btn v="secondary" icon="↩️" onClick={()=>{saveLS(SB_KEY,null);const cfg={...BUILTIN_SB};setSbCfg(cfg);setSb(makeSB(cfg.url,cfg.key));setShowSbCfg(false);flash("Configuration intégrée restaurée");}}>Réinitialiser</Btn>}
+        {sbCfg?.url&&<Btn v="danger" onClick={()=>{setSbCfg(null);setSb(null);saveLS(SB_KEY,null);flash("Déconnecté — mode local uniquement");}}>Déconnecter</Btn>}
+      </div>
+    </Modal>
+
+    {/* New Task Modal */}
+    <Modal open={showNewTask} onClose={()=>setShowNewTask(false)} title="Nouvelle tâche personnalisée">
+      <Input label="Titre" value={newTask.title} onChange={v=>setNewTask({...newTask,title:v})} placeholder="Titre de la tâche" req/>
+      <Input label="Description" value={newTask.desc} onChange={v=>setNewTask({...newTask,desc:v})} placeholder="Détails…" textarea/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <div>
+          <label style={{fontSize:12,fontWeight:600,color:"#374151",fontFamily:ff}}>Catégorie</label>
+          <select value={newTask.cat} onChange={e=>setNewTask({...newTask,cat:e.target.value})} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #d1d5db",borderRadius:9,fontSize:13,fontFamily:ff}}>{TASK_CATS.map(c=><option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}</select>
+        </div>
+        <Input label="Jours avant (J-?)" type="number" value={newTask.jb} onChange={v=>setNewTask({...newTask,jb:parseInt(v)||0})}/>
+      </div>
+      <label style={{display:"flex",alignItems:"center",gap:6,fontSize:12,fontFamily:ff,marginBottom:14}}><input type="checkbox" checked={newTask.req} onChange={e=>setNewTask({...newTask,req:e.target.checked})}/>Tâche obligatoire</label>
+      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn v="secondary" onClick={()=>setShowNewTask(false)}>Annuler</Btn><Btn onClick={addTask} icon="➕">Ajouter</Btn></div>
+    </Modal>
+  </div>;
 }
