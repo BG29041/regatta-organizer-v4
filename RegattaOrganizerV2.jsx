@@ -250,8 +250,8 @@ Le Bureau — AMATH KAKIKOUKA` },
 Monsieur le Maire,
 
 Je soussigné :
-Nom : GUERIN
-Prénoms : LOIC
+Nom : PHILIPPONNEAU
+Prénoms : MAEL
 Qualité : Président de l'association AMATH KAKIKOUKA
 Domicile : 6 boulevard de la mer
 CP/ville : 29217 PLOUGONVELIN
@@ -283,7 +283,7 @@ DESCRIPTION
 - Boissons groupe 3 de 10h à 19h
 
 RESPONSABLES SÉCURITÉ
-Responsable principal : GUERIN Loïc — 06 66 99 19 89
+Responsable principal : PHILIPPONNEAU Maël  — 07 83 15 35 58
 Responsable adjoint : BLANCKAERT Godelieve — 06 15 87 10 03
 Nombre de bénévoles : ~20
 
@@ -311,7 +311,7 @@ Photos disponibles sur demande.
 ---
 Contacts presse :
 - Le Télégramme : cessoumich@gmail.com
-- Ouest France : gery.baldenweck@orange.fr
+- Ouest France : Gildas.Priol@gmail.com
 
 ⚠️ Envoyer au plus tard le mardi matin suivant la régate.` },
 ];
