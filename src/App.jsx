@@ -3,9 +3,24 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 // ═══════════════════════════════════════════════
 // CONSTANTS & DATA
 // ═══════════════════════════════════════════════
-const VER = "4.1";
+const VER = "4.2";
 const LS_KEY = "regates_org_v4";
 const SB_KEY = "regates_sb_cfg";
+
+// ═══════════════════════════════════════════════
+// CONFIGURATION SUPABASE INTÉGRÉE
+// La clé « anon » est publique par conception : la sécurité des données
+// repose sur les politiques RLS côté Supabase, pas sur le secret de cette clé.
+// ⚠️ AVANT DE DÉPLOYER : remplacez la valeur de `key` ci-dessous par votre
+// clé anon Legacy (Supabase → Settings → API → onglet « Legacy anon »,
+// elle commence par eyJ…). Une fois collée ici, plus aucun utilisateur
+// n'aura besoin de configurer quoi que ce soit.
+// ═══════════════════════════════════════════════
+const BUILTIN_SB = {
+  url: "https://nqfrxqaryevpbqxoolqs.supabase.co",
+  key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5xZnJ4cWFyeWV2cGJxeG9vbHFzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NzIzNjgsImV4cCI6MjA5MDU0ODM2OH0.MsxpsEBExh5z7v8tpecV5NrbXyG184uoBTQH9Rh-ulY",
+};
+const builtinReady = () => BUILTIN_SB.url.startsWith("https://") && BUILTIN_SB.key.startsWith("eyJ");
 
 const GRADES = [
   { value: "5C", label: "5C — Club" },
@@ -253,8 +268,8 @@ Le Bureau — AMATH KAKIKOUKA` },
 Monsieur le Maire,
 
 Je soussigné :
-Nom : GUERIN
-Prénoms : LOIC
+Nom : PHILIPPONNEAU
+Prénoms : MAEL
 Qualité : Président de l'association AMATH KAKIKOUKA
 Domicile : 6 boulevard de la mer
 CP/ville : 29217 PLOUGONVELIN
@@ -286,7 +301,7 @@ DESCRIPTION
 - Boissons groupe 3 de 10h à 19h
 
 RESPONSABLES SÉCURITÉ
-Responsable principal : GUERIN Loïc — 06 66 99 19 89
+Responsable principal : PHILIPPONNEAU Maël — 07 83 15 35 58
 Responsable adjoint : BLANCKAERT Godelieve — 06 15 87 10 03
 Nombre de bénévoles : ~20
 
@@ -314,7 +329,7 @@ Photos disponibles sur demande.
 ---
 Contacts presse :
 - Le Télégramme : cessoumich@gmail.com
-- Ouest France : gery.baldenweck@orange.fr
+- Ouest France : Gildas.Priol@gmail.com
 
 ⚠️ Envoyer au plus tard le mardi matin suivant la régate.` },
 ];
@@ -945,7 +960,7 @@ export default function App() {
   const [regattas,setRegattas]=useState([]);
   const [curId,setCurId]=useState(null);
   const [tab,setTab]=useState("dashboard");
-  const [sbCfg,setSbCfg]=useState(loadLS(SB_KEY));
+  const [sbCfg,setSbCfg]=useState(()=>{ const saved=loadLS(SB_KEY); if(saved?.url&&saved?.key) return saved; return builtinReady()?{...BUILTIN_SB}:null; });
   const [sb,setSb]=useState(null);
   const [toast,setToast]=useState(null);
 
@@ -1275,7 +1290,7 @@ export default function App() {
           <div style={{fontSize:32,fontWeight:800,color:"#1e40af",letterSpacing:5,fontFamily:ff}}>{cur.share_code}</div>
         </div>
         <div style={{textAlign:"center",marginBottom:16}}>
-          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`${window.location?.origin||"https://regatta-organizer-v3.vercel.app"}?join=${cur.share_code}`)}`} alt="QR" style={{borderRadius:10,border:"2px solid #e2e8f0"}} width="160" height="160"/>
+          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`${window.location?.origin||"https://regatta-organizer-v4-su9k.vercel.app"}?join=${cur.share_code}`)}`} alt="QR" style={{borderRadius:10,border:"2px solid #e2e8f0"}} width="160" height="160"/>
         </div>
         <div style={{display:"flex",gap:8}}>
           <Btn v="success" icon="📱" style={{flex:1}} onClick={()=>{const url=`${window.location?.origin}?join=${cur.share_code}`; window.open(`https://wa.me/?text=${encodeURIComponent(`Rejoins la régate « ${cur.name} » !\nCode : ${cur.share_code}\nLien : ${url}`)}`,"_blank");}}>WhatsApp</Btn>
@@ -1285,13 +1300,15 @@ export default function App() {
     </Modal>
 
     {/* Supabase Config Modal */}
-    <Modal open={showSbCfg} onClose={()=>setShowSbCfg(false)} title="Configuration Supabase">
+    <Modal open={showSbCfg} onClose={()=>setShowSbCfg(false)} title="Configuration Supabase (avancé)">
+      {builtinReady()&&<div style={{fontSize:12,color:"#166534",background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:9,padding:"8px 10px",marginBottom:14,fontFamily:ff}}>✅ La synchronisation est déjà préconfigurée dans l'application : aucun réglage n'est nécessaire. Ne modifiez ces champs que si vous souhaitez utiliser une autre base Supabase.</div>}
       <div style={{fontSize:12,color:"#64748b",marginBottom:14,fontFamily:ff}}>Connectez Supabase pour la synchronisation multi-appareils. Sans Supabase, les données restent locales.</div>
       <Input label="URL du projet" value={sbCfg?.url||""} onChange={v=>setSbCfg({...sbCfg,url:v})} placeholder="https://xxxxx.supabase.co"/>
       <Input label="Clé API — onglet « Legacy anon » (commence par eyJ…)" value={sbCfg?.key||""} onChange={v=>setSbCfg({...sbCfg,key:v})} placeholder="eyJhbGciOi…"/>
-      <div style={{display:"flex",gap:8}}>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         <Btn onClick={()=>{saveLS(SB_KEY,sbCfg);setSb(makeSB(sbCfg?.url,sbCfg?.key));setShowSbCfg(false);flash("Configuration enregistrée")}} icon="💾">Enregistrer</Btn>
-        {sbCfg?.url&&<Btn v="danger" onClick={()=>{setSbCfg(null);setSb(null);saveLS(SB_KEY,null);flash("Déconnecté");}}>Déconnecter</Btn>}
+        {builtinReady()&&<Btn v="secondary" icon="↩️" onClick={()=>{saveLS(SB_KEY,null);const cfg={...BUILTIN_SB};setSbCfg(cfg);setSb(makeSB(cfg.url,cfg.key));setShowSbCfg(false);flash("Configuration intégrée restaurée");}}>Réinitialiser</Btn>}
+        {sbCfg?.url&&<Btn v="danger" onClick={()=>{setSbCfg(null);setSb(null);saveLS(SB_KEY,null);flash("Déconnecté — mode local uniquement");}}>Déconnecter</Btn>}
       </div>
     </Modal>
 
